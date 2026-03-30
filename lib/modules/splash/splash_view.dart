@@ -1,8 +1,5 @@
-import 'dart:ui' as ui;
-
 import 'package:actra/utils/custom_tap.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/scheduler.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
@@ -10,6 +7,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:text_gradiate/text_gradiate.dart';
 
 import '../../utils/colors.dart';
+import '../shader/shader_widget.dart';
 import 'splash_controller.dart';
 
 class SplashView extends GetView<SplashController> {
@@ -32,11 +30,14 @@ class SplashView extends GetView<SplashController> {
             Positioned(
               top: -80,
               left: -100,
-              child: Image.asset(
-                "assets/images/blob.png",
-                // fit: BoxFit.cover,
-                width: 490.w,
-                height: 590.w,
+              child: Hero(
+                tag: "shader-blob",
+                child: Image.asset(
+                  "assets/images/blob.png",
+                  // fit: BoxFit.cover,
+                  width: 490.w,
+                  height: 590.w,
+                ),
               ),
             ),
 
@@ -46,7 +47,7 @@ class SplashView extends GetView<SplashController> {
               child: SizedBox(
                 width: 0.7.sh,
                 height: 0.7.sh,
-                child: ShaderWidget(),
+                child: Hero(tag: "shader", child: ShaderWidget()),
               ),
             ),
             Positioned(
@@ -97,7 +98,7 @@ class SplashView extends GetView<SplashController> {
                   child: MagicButton(
                     text: "Get Started",
                     onPressed: () {
-                      print('Magic button pressed!');
+                      Get.toNamed("/on-boarding");
                     },
                   ),
                 ),
@@ -170,86 +171,5 @@ class MagicButton extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class ShaderWidget extends StatefulWidget {
-  const ShaderWidget({super.key});
-
-  @override
-  State<ShaderWidget> createState() => _ShaderWidgetState();
-}
-
-class _ShaderWidgetState extends State<ShaderWidget>
-    with SingleTickerProviderStateMixin {
-  ui.FragmentShader? _shader;
-  Ticker? _ticker;
-  final ValueNotifier<double> _time = ValueNotifier(0.0);
-
-  @override
-  void initState() {
-    super.initState();
-    _loadShader();
-  }
-
-  Future<void> _loadShader() async {
-    final program = await ui.FragmentProgram.fromAsset('shaders/fractal.frag');
-    _shader = program.fragmentShader();
-
-    _ticker = createTicker((elapsed) {
-      _time.value = elapsed.inMilliseconds / 1000.0;
-    })..start();
-
-    setState(() {});
-  }
-
-  @override
-  void dispose() {
-    _ticker?.dispose();
-    _time.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_shader == null) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    return RepaintBoundary(
-      child: SizedBox.expand(
-        child: ValueListenableBuilder<double>(
-          valueListenable: _time,
-          builder: (context, time, _) {
-            return CustomPaint(
-              painter: ShaderPainter(shader: _shader!, time: time),
-              isComplex: true,
-              willChange: true,
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-
-class ShaderPainter extends CustomPainter {
-  final ui.FragmentShader shader;
-  final double time;
-
-  ShaderPainter({required this.shader, required this.time});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    shader.setFloat(0, size.width);
-    shader.setFloat(1, size.height);
-    shader.setFloat(2, time);
-
-    canvas.drawRect(Offset.zero & size, Paint()..shader = shader);
-  }
-
-  @override
-  bool shouldRepaint(covariant ShaderPainter oldDelegate) {
-    return oldDelegate.time != time;
   }
 }

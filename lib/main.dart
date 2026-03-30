@@ -1,24 +1,30 @@
 import 'package:actra/routes/app_pages.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_refresh_rate_control/flutter_refresh_rate_control.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 
+import 'modules/shader/shader_controller.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Get.put(ShaderController(), permanent: true);
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  final _refreshRateControl = FlutterRefreshRateControl();
+  final refreshRateControl = FlutterRefreshRateControl();
 
   try {
-    bool success = await _refreshRateControl.requestHighRefreshRate();
+    bool success = await refreshRateControl.requestHighRefreshRate();
     if (success) {
       print('High refresh rate enabled');
     } else {
       print('Failed to enable high refresh rate');
     }
   } catch (e) {
-    print('Error: $e');
+    if (kDebugMode) {
+      print('Error: $e');
+    }
   }
 
   runApp(const MyApp());
