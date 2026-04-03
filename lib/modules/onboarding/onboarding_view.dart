@@ -1,3 +1,6 @@
+// lib/modules/onboarding/onboarding_view.dart
+
+import 'package:actra/modules/audio/audio_controller.dart';
 import 'package:actra/modules/onboarding/onboarding_controller.dart';
 import 'package:actra/modules/shader/shader_controller.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +14,7 @@ import 'package:permission_handler/permission_handler.dart';
 import 'package:text_gradiate/text_gradiate.dart';
 
 import '../../utils/custom_tap.dart';
+import '../../widgets/realtime_typewriter_transcript.dart';
 import '../shader/shader_widget.dart';
 
 class OnboardingView extends GetView<OnboardingController> {
@@ -18,6 +22,9 @@ class OnboardingView extends GetView<OnboardingController> {
 
   @override
   Widget build(BuildContext context) {
+    // Initialize AudioController
+    Get.put(AudioController());
+
     return AnnotatedRegion(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -62,27 +69,29 @@ class OnboardingView extends GetView<OnboardingController> {
                 mainAxisSize: MainAxisSize.max,
                 children: [
                   const Spacer(),
-                  Padding(
-                    padding: EdgeInsets.symmetric(horizontal: 32.w),
-                    child: TextGradiate(
-                      text: Text(
-                        'Hi Samuel! 👋 I\'m Actra, your AI assistant. '
-                        'Speak naturally and I\'ll make it happen. '
-                        'Ask me anything.',
-                        textAlign: TextAlign.center,
-                        style: GoogleFonts.instrumentSans(
-                          fontSize: 16.sp,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      colors: const [Colors.black, Color(0xFF8E6BAC)],
-                      gradientType: GradientType.linear,
-                      begin: Alignment.centerLeft,
-                      end: Alignment.centerRight,
-                      tileMode: TileMode.clamp,
-                    ),
-                  ),
+
+                  // ── Text Area (Welcome OR Transcription) ───────────────
+                  Obx(() {
+                    final audioCtrl = AudioController.to;
+                    final isListening = audioCtrl.isListening.value;
+                    final displayText = audioCtrl.displayText;
+
+                    return AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 300),
+                      switchInCurve: Curves.easeIn,
+                      switchOutCurve: Curves.easeOut,
+                      child: isListening
+                          ? _TranscriptionDisplay(
+                              key: ValueKey('transcription'),
+                              text: displayText,
+                            )
+                          : _WelcomeText(key: ValueKey('welcome')),
+                    );
+                  }),
+
                   const Spacer(),
+
+                  // ── Bottom Controls ────────────────────────────────────
                   GlassTheme(
                     data: GlassThemeData(
                       light: GlassThemeVariant(
@@ -128,7 +137,75 @@ class OnboardingView extends GetView<OnboardingController> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MagicButton
+// Welcome Text (when NOT listening)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _WelcomeText extends StatelessWidget {
+  const _WelcomeText({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 32.w),
+      child: TextGradiate(
+        text: Text(
+          'Hi Samuel! 👋 I\'m Actra, your AI assistant. '
+          'Speak naturally and I\'ll make it happen. '
+          'Ask me anything.',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.instrumentSans(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        colors: const [Colors.black, Color(0xFF8E6BAC)],
+        gradientType: GradientType.linear,
+        begin: Alignment.centerLeft,
+        end: Alignment.centerRight,
+        tileMode: TileMode.clamp,
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Transcription Display (when listening)
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _TranscriptionDisplay extends StatelessWidget {
+  final String text;
+
+  const _TranscriptionDisplay({super.key, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: BoxConstraints(maxHeight: 0.3.sh, minHeight: 80.h),
+      padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 16.h),
+      child: SingleChildScrollView(
+        reverse: true, // Latest text at bottom
+        child: RealtimeTypewriterTranscript(
+          text: text.isEmpty ? 'Listening...' : text,
+          placeholderStyle: GoogleFonts.instrumentSans(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w500,
+            color: Colors.black.withOpacity(0.4),
+            height: 1.5,
+          ),
+          style: GoogleFonts.instrumentSans(
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w500,
+            color: Colors.black.withOpacity(0.85),
+            height: 1.5,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Magic Button (updated to control AudioController)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class MagicButton extends StatefulWidget {
@@ -141,28 +218,23 @@ class MagicButton extends StatefulWidget {
 class _MagicButtonState extends State<MagicButton>
     with TickerProviderStateMixin {
   bool _isListening = false;
-  bool _isAnimating = false; // guard against rapid taps
+  bool _isAnimating = false;
 
-  // ── Icon crossfade ────────────────────────────────────────────────────────
   late final AnimationController _iconCtrl;
-  late final Animation<double> _micIdleOpacity; // Iconsax.microphone
-  late final Animation<double> _micOnOpacity; // Iconsax.microphone2
+  late final Animation<double> _micIdleOpacity;
+  late final Animation<double> _micOnOpacity;
   late final Animation<double> _iconScale;
 
-  // ── Outer ring pulse (breathes while listening) ───────────────────────────
   late final AnimationController _pulseCtrl;
   late final Animation<double> _pulseScale;
   late final Animation<double> _pulseOpacity;
 
-  // ── Button scale driven by amplitude ValueNotifier ────────────────────────
   late final AnimationController _ampCtrl;
-  // _ampCtrl.value is driven directly from amplitude stream 0→1
 
   @override
   void initState() {
     super.initState();
 
-    // Icon swap — 380 ms with a slight overshoot feel
     _iconCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 380),
@@ -195,7 +267,6 @@ class _MagicButtonState extends State<MagicButton>
       ),
     ]).animate(_iconCtrl);
 
-    // Pulse ring
     _pulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
@@ -209,16 +280,12 @@ class _MagicButtonState extends State<MagicButton>
       end: 0.0,
     ).animate(CurvedAnimation(parent: _pulseCtrl, curve: Curves.easeOut));
 
-    // Amplitude controller — we drive .value manually via listener
     _ampCtrl = AnimationController(vsync: this, value: 0.0);
-
-    // Mirror ShaderController amplitude into _ampCtrl for button scale
     ShaderController.to.amplitude.addListener(_onAmplitude);
   }
 
   void _onAmplitude() {
     if (!mounted) return;
-    // Lerp amp controller toward current amplitude for extra smoothness
     final target = ShaderController.to.amplitude.value;
     _ampCtrl.animateTo(
       target,
@@ -236,14 +303,13 @@ class _MagicButtonState extends State<MagicButton>
     super.dispose();
   }
 
-  // ── Tap ───────────────────────────────────────────────────────────────────
   Future<void> _handleTap() async {
     if (_isAnimating) return;
     _isAnimating = true;
     HapticFeedback.mediumImpact();
 
     if (!_isListening) {
-      // Request permission first
+      // Request permission
       final status = await Permission.microphone.request();
       if (!status.isGranted) {
         _isAnimating = false;
@@ -255,24 +321,32 @@ class _MagicButtonState extends State<MagicButton>
         return;
       }
 
-      final started = await ShaderController.to.startListening();
-      if (!started) {
-        _isAnimating = false;
-        return;
-      }
-
+      // React immediately — do not wait for SFX or Whisper init.
       setState(() => _isListening = true);
       _iconCtrl.forward();
       _pulseCtrl.repeat();
+
+      final shaderStarted = await ShaderController.to.startListening();
+      final audioStarted = await AudioController.to.startListening();
+
+      if (!shaderStarted || !audioStarted) {
+        setState(() => _isListening = false);
+        _iconCtrl.reverse();
+        _pulseCtrl.stop();
+        _pulseCtrl.reset();
+        _isAnimating = false;
+        return;
+      }
     } else {
-      await ShaderController.to.stopListening();
       setState(() => _isListening = false);
       _iconCtrl.reverse();
       _pulseCtrl.stop();
       _pulseCtrl.reset();
+
+      await AudioController.to.stopListening();
+      await ShaderController.to.stopListening();
     }
 
-    // Small debounce so double-taps don't mess state
     await Future.delayed(const Duration(milliseconds: 420));
     _isAnimating = false;
   }
@@ -289,7 +363,7 @@ class _MagicButtonState extends State<MagicButton>
         child: Stack(
           alignment: Alignment.center,
           children: [
-            // ── Pulse ring ────────────────────────────────────────────────
+            // Pulse ring
             AnimatedBuilder(
               animation: _pulseCtrl,
               builder: (_, __) {
@@ -306,7 +380,7 @@ class _MagicButtonState extends State<MagicButton>
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: const Color(0xFF7C3AED),
+                          color: const Color(0xFF632EE4),
                           width: 2.0,
                         ),
                       ),
@@ -316,14 +390,11 @@ class _MagicButtonState extends State<MagicButton>
               },
             ),
 
-            // ── Button body — NO amplitude scaling ────────────────────────────────
+            // Button body
             AnimatedBuilder(
-              animation: _iconCtrl, // Only listen to icon animation
+              animation: Listenable.merge([_iconCtrl, _ampCtrl]),
               builder: (_, __) {
-                // Only use base scale from icon toggle animation
                 final scale = _iconScale.value;
-
-                // Glow still reacts to amplitude via _ampCtrl
                 final glowRadius = _isListening
                     ? 12.0 + _ampCtrl.value * 24.0
                     : 0.0;
@@ -362,45 +433,20 @@ class _MagicButtonState extends State<MagicButton>
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Mic OFF icon (idle arrow / mic outline)
                         FadeTransition(
                           opacity: _micIdleOpacity,
-                          child: ScaleTransition(
-                            scale: ReverseAnimation(
-                              CurvedAnimation(
-                                parent: _iconCtrl,
-                                curve: const Interval(
-                                  0.0,
-                                  0.5,
-                                  curve: Curves.easeIn,
-                                ),
-                              ),
-                            ),
-                            child: Icon(
-                              Iconsax.microphone,
-                              color: Colors.white,
-                              size: 26.sp,
-                            ),
+                          child: Icon(
+                            Iconsax.microphone,
+                            color: Colors.white,
+                            size: 26.sp,
                           ),
                         ),
-
-                        // Mic ON icon (active / filled)
                         FadeTransition(
                           opacity: _micOnOpacity,
-                          child: ScaleTransition(
-                            scale: CurvedAnimation(
-                              parent: _iconCtrl,
-                              curve: const Interval(
-                                0.5,
-                                1.0,
-                                curve: Curves.easeOut,
-                              ),
-                            ),
-                            child: Icon(
-                              Iconsax.microphone_slash,
-                              color: Colors.white,
-                              size: 26.sp,
-                            ),
+                          child: Icon(
+                            Iconsax.microphone_slash,
+                            color: Colors.white,
+                            size: 26.sp,
                           ),
                         ),
                       ],

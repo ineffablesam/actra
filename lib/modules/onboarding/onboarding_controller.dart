@@ -43,8 +43,3 @@ class OnboardingController extends GetxController {
     Get.offAllNamed('/layout');
   }
 }
-
-//
-// similar to the onboarding view i need clean animated intrests view where u ask user to select custom cards for the intrests so their feed is customized use custom compos and also make sur e a sticky button on bom for Continue use bottom nav bar for that ... this is for news intrests.. it should have animated containers ad selected and un selected states and minimum 4 categories selected and also cards should have images alsoo.. ..
-// use OnboardingController
-//

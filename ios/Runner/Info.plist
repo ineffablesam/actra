@@ -46,6 +46,10 @@
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
-    <string>Actra needs microphone access to hear your voice commands.</string>
+	<string>Actra needs microphone access to hear your voice commands.</string>
+	<key>NSDownloadsFolderUsageDescription</key>
+	<string>Actra stores AI model files in your Downloads folder for on-device speech recognition.</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>Actra stores AI model files in your Documents folder for on-device speech recognition.</string>
 </dict>
 </plist>

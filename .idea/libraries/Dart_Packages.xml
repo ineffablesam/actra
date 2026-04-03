@@ -233,6 +233,20 @@
             </list>
           </value>
         </entry>
+        <entry key="flutter_whisper_kit">
+          <value>
+            <list>
+              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_whisper_kit-0.3.0/lib" />
+            </list>
+          </value>
+        </entry>
+        <entry key="flutter_whisper_kit_apple">
+          <value>
+            <list>
+              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_whisper_kit_apple-0.3.0/lib" />
+            </list>
+          </value>
+        </entry>
         <entry key="get">
           <value>
             <list>
@@ -492,62 +506,6 @@
             </list>
           </value>
         </entry>
-        <entry key="record">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/record-6.2.0/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="record_android">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/record_android-1.5.1/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="record_ios">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/record_ios-1.2.0/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="record_linux">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/record_linux-1.3.0/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="record_macos">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/record_macos-1.2.1/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="record_platform_interface">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/record_platform_interface-1.5.0/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="record_web">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/record_web-1.3.0/lib" />
-            </list>
-          </value>
-        </entry>
-        <entry key="record_windows">
-          <value>
-            <list>
-              <option value="$USER_HOME$/.pub-cache/hosted/pub.dev/record_windows-1.0.7/lib" />
-            </list>
-          </value>
-        </entry>
         <entry key="sky_engine">
           <value>
             <list>
@@ -739,6 +697,8 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_screenutil-5.9.3/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_shaders-0.1.3/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_svg-2.2.4/lib" />
+      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_whisper_kit-0.3.0/lib" />
+      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/flutter_whisper_kit_apple-0.3.0/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/get-4.7.3/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/google_fonts-8.0.2/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/http-1.6.0/lib" />
@@ -776,14 +736,6 @@
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/platform-3.1.6/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/plugin_platform_interface-2.1.8/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/posix-6.5.0/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/record-6.2.0/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/record_android-1.5.1/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/record_ios-1.2.0/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/record_linux-1.3.0/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/record_macos-1.2.1/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/record_platform_interface-1.5.0/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/record_web-1.3.0/lib" />
-      <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/record_windows-1.0.7/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/soft_edge_blur-0.1.3/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/source_span-1.10.2/lib" />
       <root url="file://$USER_HOME$/.pub-cache/hosted/pub.dev/sprung-3.0.1/lib" />

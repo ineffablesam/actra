@@ -1,12 +1,8 @@
-import 'dart:async';
 import 'dart:ui' as ui;
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:get/get.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:record/record.dart';
 
 class ShaderController extends GetxController
     with GetSingleTickerProviderStateMixin {
@@ -17,11 +13,6 @@ class ShaderController extends GetxController
   final amplitude = ValueNotifier<double>(0.0);
 
   Ticker? _ticker;
-  final _recorder = AudioRecorder();
-  StreamSubscription<Amplitude>? _amplitudeSub;
-
-  // Audio player for feedback sounds
-  final _audioPlayer = AudioPlayer();
 
   double _targetAmplitude = 0.0;
   double _smoothedAmplitude = 0.0;
@@ -49,13 +40,6 @@ class ShaderController extends GetxController
   void onInit() {
     super.onInit();
     _loadShader();
-    _initAudioPlayer();
-  }
-
-  void _initAudioPlayer() {
-    // Set audio player mode for quick playback
-    _audioPlayer.setReleaseMode(ReleaseMode.stop);
-    _audioPlayer.setVolume(1.0);
   }
 
   Future<void> _loadShader() async {
@@ -94,80 +78,23 @@ class ShaderController extends GetxController
     return normalized;
   }
 
-  /// Play activation sound
-  Future<void> _playActivateSound() async {
-    try {
-      await _audioPlayer.stop(); // Stop any current playback
-      await _audioPlayer.play(AssetSource('audio/actra_activate.mp3'));
-      print('🔊 Playing activation sound');
-    } catch (e) {
-      print('❌ Error playing activate sound: $e');
-    }
-  }
-
-  /// Play stop sound
-  Future<void> _playStopSound() async {
-    try {
-      await _audioPlayer.stop(); // Stop any current playback
-      await _audioPlayer.play(AssetSource('audio/actra_stop.mp3'));
-      print('🔊 Playing stop sound');
-    } catch (e) {
-      print('❌ Error playing stop sound: $e');
-    }
+  /// Called by AudioController with the dB level computed from PCM samples.
+  /// This drives the blob animation without needing a separate recorder.
+  void updateAmplitudeFromDb(double db) {
+    _targetAmplitude = _processAmplitude(db);
   }
 
   Future<bool> startListening() async {
-    final hasPermission = await _recorder.hasPermission();
-    if (!hasPermission) return false;
-
-    try {
-      // 🔊 Play activation sound FIRST
-      unawaited(_playActivateSound());
-
-      final tempDir = await getTemporaryDirectory();
-      final audioPath =
-          '${tempDir.path}/temp_recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
-
-      await _recorder.start(
-        RecordConfig(
-          encoder: AudioEncoder.aacLc,
-          sampleRate: 44100,
-          numChannels: 1,
-          autoGain: false,
-          echoCancel: false,
-          noiseSuppress: false,
-        ),
-        path: audioPath,
-      );
-
-      _amplitudeSub = _recorder
-          .onAmplitudeChanged(const Duration(milliseconds: 40))
-          .listen((amp) {
-            _targetAmplitude = _processAmplitude(amp.current);
-          });
-
-      return true;
-    } catch (e) {
-      print('❌ Recording error: $e');
-      return false;
-    }
+    return true;
   }
 
   Future<void> stopListening() async {
-    unawaited(_playStopSound());
-
-    await _amplitudeSub?.cancel();
-    _amplitudeSub = null;
-    await _recorder.stop();
     _targetAmplitude = 0.0;
   }
 
   @override
   void onClose() {
     _ticker?.dispose();
-    _amplitudeSub?.cancel();
-    _recorder.dispose();
-    _audioPlayer.dispose();
     time.dispose();
     amplitude.dispose();
     super.onClose();
