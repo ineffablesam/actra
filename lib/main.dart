@@ -5,12 +5,14 @@ import 'package:flutter/services.dart';
 import 'package:flutter_refresh_rate_control/flutter_refresh_rate_control.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:liquid_glass_widgets/liquid_glass_setup.dart';
 
 import 'modules/shader/shader_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   Get.put(ShaderController(), permanent: true);
+  await LiquidGlassWidgets.initialize();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   final refreshRateControl = FlutterRefreshRateControl();
 
@@ -27,7 +29,7 @@ Future<void> main() async {
     }
   }
 
-  runApp(const MyApp());
+  runApp(LiquidGlassWidgets.wrap(const MyApp()));
 }
 
 class MyApp extends StatelessWidget {

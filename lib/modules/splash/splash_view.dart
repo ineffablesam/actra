@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:text_gradiate/text_gradiate.dart';
 
 import '../../utils/colors.dart';
@@ -126,7 +127,7 @@ class MagicButton extends StatelessWidget {
       child: Container(
         height: 60,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(60),
+          borderRadius: BorderRadius.circular(0),
           // Outer border (darker purple)
           // boxShadow: [
           //   BoxShadow(
@@ -138,8 +139,9 @@ class MagicButton extends StatelessWidget {
           // ],
         ),
         child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 10.w),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(60),
+            borderRadius: BorderRadius.circular(0),
             // Inner border (lighter purple/lavender)
             border: Border.all(color: Color(0xFF632EE4), width: 3),
             // Base purple gradient background
@@ -153,7 +155,7 @@ class MagicButton extends StatelessWidget {
               // Content
               Center(
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
                       text,
@@ -163,6 +165,7 @@ class MagicButton extends StatelessWidget {
                         color: Colors.white.withOpacity(0.95),
                       ),
                     ),
+                    Icon(Iconsax.arrow_right_1_copy, color: Colors.white),
                   ],
                 ),
               ),
