@@ -1,5 +1,8 @@
 // lib/modules/onboarding/onboarding_view.dart
 
+import 'package:actra/chat/controllers/chat_controller.dart';
+import 'package:actra/chat/services/websocket_service.dart';
+import 'package:actra/chat/widgets/chat_message_list.dart';
 import 'package:actra/modules/audio/audio_controller.dart';
 import 'package:actra/modules/onboarding/onboarding_controller.dart';
 import 'package:actra/modules/shader/shader_controller.dart';
@@ -11,7 +14,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:iconsax_flutter/iconsax_flutter.dart';
 import 'package:liquid_glass_widgets/liquid_glass_widgets.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'package:text_gradiate/text_gradiate.dart';
 
 import '../../utils/custom_tap.dart';
 import '../../widgets/realtime_typewriter_transcript.dart';
@@ -22,9 +24,6 @@ class OnboardingView extends GetView<OnboardingController> {
 
   @override
   Widget build(BuildContext context) {
-    // Initialize AudioController
-    Get.put(AudioController());
-
     return AnnotatedRegion(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -68,28 +67,61 @@ class OnboardingView extends GetView<OnboardingController> {
               Column(
                 mainAxisSize: MainAxisSize.max,
                 children: [
-                  const Spacer(),
-
-                  // ── Text Area (Welcome OR Transcription) ───────────────
-                  Obx(() {
-                    final audioCtrl = AudioController.to;
-                    final isListening = audioCtrl.isListening.value;
-                    final displayText = audioCtrl.displayText;
-
-                    return AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 300),
-                      switchInCurve: Curves.easeIn,
-                      switchOutCurve: Curves.easeOut,
-                      child: isListening
-                          ? _TranscriptionDisplay(
-                              key: ValueKey('transcription'),
-                              text: displayText,
-                            )
-                          : _WelcomeText(key: ValueKey('welcome')),
-                    );
-                  }),
-
-                  const Spacer(),
+                  Padding(
+                    padding: EdgeInsets.only(top: 48.h, left: 16.w, right: 16.w),
+                    child: Row(
+                      children: [
+                        Text(
+                          '🎙 Actra',
+                          style: GoogleFonts.instrumentSans(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const Spacer(),
+                        Obx(() {
+                          final st = Get.find<WebSocketService>().status.value;
+                          final c = switch (st) {
+                            WsConnectionStatus.connected => Colors.greenAccent,
+                            WsConnectionStatus.reconnecting => Colors.amber,
+                            WsConnectionStatus.disconnected => Colors.redAccent,
+                          };
+                          return Container(
+                            width: 10,
+                            height: 10,
+                            decoration: BoxDecoration(
+                              color: c,
+                              shape: BoxShape.circle,
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        const ChatMessageList(),
+                        Obx(() {
+                          final audioCtrl = AudioController.to;
+                          if (!audioCtrl.isListening.value) {
+                            return const SizedBox.shrink();
+                          }
+                          return Align(
+                            alignment: Alignment.topCenter,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 16.w),
+                              child: _TranscriptionDisplay(
+                                text: audioCtrl.displayText,
+                              ),
+                            ),
+                          );
+                        }),
+                      ],
+                    ),
+                  ),
 
                   // ── Bottom Controls ────────────────────────────────────
                   GlassTheme(
@@ -137,45 +169,13 @@ class OnboardingView extends GetView<OnboardingController> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Welcome Text (when NOT listening)
-// ─────────────────────────────────────────────────────────────────────────────
-
-class _WelcomeText extends StatelessWidget {
-  const _WelcomeText({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.symmetric(horizontal: 32.w),
-      child: TextGradiate(
-        text: Text(
-          'Hi Samuel! 👋 I\'m Actra, your AI assistant. '
-          'Speak naturally and I\'ll make it happen. '
-          'Ask me anything.',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.instrumentSans(
-            fontSize: 16.sp,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
-        colors: const [Colors.black, Color(0xFF8E6BAC)],
-        gradientType: GradientType.linear,
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        tileMode: TileMode.clamp,
-      ),
-    );
-  }
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Transcription Display (when listening)
 // ─────────────────────────────────────────────────────────────────────────────
 
 class _TranscriptionDisplay extends StatelessWidget {
   final String text;
 
-  const _TranscriptionDisplay({super.key, required this.text});
+  const _TranscriptionDisplay({required this.text});
 
   @override
   Widget build(BuildContext context) {
@@ -345,6 +345,11 @@ class _MagicButtonState extends State<MagicButton>
 
       await AudioController.to.stopListening();
       await ShaderController.to.stopListening();
+
+      final spoken = AudioController.to.transcribedText.value.trim();
+      if (spoken.isNotEmpty) {
+        Get.find<ChatController>().sendUserTranscript(spoken);
+      }
     }
 
     await Future.delayed(const Duration(milliseconds: 420));
