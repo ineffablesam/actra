@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:actra/chat/services/audio_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_whisper_kit/flutter_whisper_kit.dart';
@@ -28,6 +29,11 @@ import 'package:get/get.dart';
 ///
 /// The README shows `stopRecording` then `finalTranscription?.text`; in v0.3.x `stopRecording`
 /// actually returns `String?` (e.g. `"Recording stopped"`), so live text must come from the stream.
+///
+/// **UI sounds:** MP3 cues use [AudioPlayer] only **before** [FlutterWhisperKit.startRecording]
+/// or **after** [FlutterWhisperKit.stopRecording] plus a short delay — never while the mic is
+/// capturing, to avoid AVAudioSession / audio focus clashes. TTS is stopped via [_stopTtsIfPlaying]
+/// before the pre-roll sound.
 class AudioController extends GetxController {
   static AudioController get to => Get.find();
 
@@ -37,12 +43,50 @@ class AudioController extends GetxController {
 
   final _whisperKit = FlutterWhisperKit();
 
-  /// Short UI cues — low latency mode for snappy start/stop sounds.
   final AudioPlayer _sfxPlayer = AudioPlayer();
+
   StreamSubscription<TranscriptionResult>? _transcriptionSub;
 
   static const String _activateAsset = 'audio/actra_activate.mp3';
   static const String _stopAsset = 'audio/actra_stop.mp3';
+
+  @override
+  void onInit() {
+    super.onInit();
+    unawaited(_configureSfxPlayer());
+  }
+
+  Future<void> _configureSfxPlayer() async {
+    await _sfxPlayer.setReleaseMode(ReleaseMode.stop);
+    await _sfxPlayer.setPlayerMode(PlayerMode.lowLatency);
+  }
+
+  /// Activate chirp runs to completion, then recording starts — never overlaps capture.
+  Future<void> _playActivateSfxFull() async {
+    await _sfxPlayer.stop();
+    await _sfxPlayer.play(AssetSource(_activateAsset));
+    try {
+      await _sfxPlayer.onPlayerComplete.first.timeout(const Duration(seconds: 5));
+    } on TimeoutException {
+      await _sfxPlayer.stop();
+    }
+  }
+
+  /// After the mic is fully released; optional delay is applied by the caller.
+  Future<void> _playStopSfx() async {
+    try {
+      await _sfxPlayer.stop();
+      await _sfxPlayer.play(AssetSource(_stopAsset));
+    } catch (_) {}
+  }
+
+  /// Stops TTS ([AudioService] / flutter_soloud) so only one native audio graph is active with the mic.
+  void _stopTtsIfPlaying() {
+    if (!Get.isRegistered<AudioService>()) return;
+    try {
+      Get.find<AudioService>().resetBuffer();
+    } catch (_) {}
+  }
 
   /// Tuned for **English** realtime accuracy: deterministic decode, VAD chunking,
   /// prefill cache (matches package `RecordingService` defaults), no auto language
@@ -71,32 +115,6 @@ class AudioController extends GetxController {
     firstTokenLogProbThreshold: -1.5,
   );
 
-  @override
-  void onInit() {
-    super.onInit();
-    unawaited(_configureSfxPlayer());
-  }
-
-  Future<void> _configureSfxPlayer() async {
-    await _sfxPlayer.setReleaseMode(ReleaseMode.stop);
-    await _sfxPlayer.setPlayerMode(PlayerMode.lowLatency);
-  }
-
-  /// Non-blocking — runs in parallel with WhisperKit so UI is not gated on SFX length.
-  Future<void> _playActivateSfx() async {
-    try {
-      await _sfxPlayer.stop();
-      await _sfxPlayer.play(AssetSource(_activateAsset));
-    } catch (_) {}
-  }
-
-  Future<void> _playStopSfx() async {
-    try {
-      await _sfxPlayer.stop();
-      await _sfxPlayer.play(AssetSource(_stopAsset));
-    } catch (_) {}
-  }
-
   Future<bool> startListening() async {
     debugPrint(
       '🎤 Start listening (WhisperKit base model should be loaded on splash)…',
@@ -106,8 +124,15 @@ class AudioController extends GetxController {
       partialText.value = '';
       isListening.value = true;
 
-      // Do not await — same frame as mic + UI; low-latency player.
-      unawaited(_playActivateSfx());
+      _stopTtsIfPlaying();
+
+      if (!kDebugMode) {
+        try {
+          await _playActivateSfxFull();
+        } catch (e) {
+          debugPrint('Activate SFX skipped: $e');
+        }
+      }
 
       await _transcriptionSub?.cancel();
       _transcriptionSub = _whisperKit.transcriptionStream.listen(
@@ -158,8 +183,13 @@ class AudioController extends GetxController {
     await _transcriptionSub?.cancel();
     _transcriptionSub = null;
 
+    // Mic is off; brief pause so the OS is not still in record mode, then play stop cue.
+    await Future<void>.delayed(const Duration(milliseconds: 280));
+    if (!kDebugMode) {
+      await _playStopSfx();
+    }
+
     debugPrint('✅ Stopped');
-    unawaited(_playStopSfx());
   }
 
   String get displayText {
@@ -172,7 +202,7 @@ class AudioController extends GetxController {
   @override
   void onClose() {
     _transcriptionSub?.cancel();
-    _sfxPlayer.dispose();
+    unawaited(_sfxPlayer.dispose());
     super.onClose();
   }
 }

@@ -173,7 +173,9 @@ class _BottomReadyState extends State<_BottomReady>
                 padding: EdgeInsets.symmetric(horizontal: 30.w),
                 child: MagicButton(
                   text: 'Get Started',
-                  onPressed: () => Get.toNamed('/on-boarding'),
+                  onPressed: () async {
+                    await Get.find<SplashController>().onGetStarted();
+                  },
                 ),
               ),
 

@@ -1,5 +1,6 @@
+import 'dart:async';
+
 import 'package:actra/chat/controllers/chat_controller.dart';
-import 'package:actra/chat/services/websocket_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -76,8 +77,12 @@ class ConnectionPanel extends StatelessWidget {
       trailing: IconButton(
         icon: const Icon(Icons.add_circle_outline, color: Colors.white70),
         onPressed: () {
-          Get.find<WebSocketService>().sendAccountConnected(provider);
-          Get.find<ChatController>().pendingProviders.remove(provider);
+          debugPrint('[ConnectionPanel] connect tapped provider=$provider');
+          try {
+            unawaited(Get.find<ChatController>().connectProvider(provider));
+          } catch (e, st) {
+            debugPrint('[ConnectionPanel] Get.find<ChatController> failed: $e\n$st');
+          }
         },
       ),
     );

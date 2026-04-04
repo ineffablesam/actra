@@ -9,7 +9,7 @@ from src.core.connection_manager import ConnectionManager
 from src.core.session_manager import SessionManager
 from src.models.events import ActionResultEvent, ErrorEvent
 from src.services.gmail_service import GmailService
-from src.services.token_vault_service import TokenVaultService
+from src.services.token_vault_service import TokenVaultExchangeError, TokenVaultService
 from src.utils.service_log import err_ctx
 
 logger = structlog.get_logger(__name__)
@@ -53,14 +53,14 @@ class ActionHandler:
             )
             return
 
-        refresh = await self._sessions.get_refresh_token(session_id)
-        if not refresh:
+        auth0_at = await self._sessions.get_auth0_access_token(session_id)
+        if not auth0_at:
             await self._send(
                 session_id,
                 ErrorEvent(
                     session_id=session_id,
                     code="AUTH_REQUIRED",
-                    message="Missing refresh token for sending.",
+                    message="Missing Auth0 access token for sending.",
                     recoverable=True,
                 ).model_dump(),
             )
@@ -70,8 +70,29 @@ class ActionHandler:
             access = await self._token_vault.get_access_token(
                 user_id,
                 "google_gmail",
-                refresh_token=refresh,
+                auth0_access_token=auth0_at,
             )
+        except TokenVaultExchangeError as e:
+            logger.error(
+                "action_gmail_token_failed",
+                service="token_vault",
+                operation="get_access_token",
+                auth0_hint=e.auth0_hint[:200] if e.auth0_hint else None,
+                **err_ctx(e),
+                exc_info=True,
+            )
+            msg = e.client_message or "Could not retrieve Gmail token."
+            code = e.ws_error_code
+            await self._send(
+                session_id,
+                ErrorEvent(
+                    session_id=session_id,
+                    code=code,
+                    message=msg,
+                    recoverable=True,
+                ).model_dump(),
+            )
+            return
         except Exception as e:
             logger.error(
                 "action_gmail_token_failed",

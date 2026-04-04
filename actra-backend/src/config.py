@@ -14,10 +14,18 @@ class Settings(BaseSettings):
 
     redis_url: str = "redis://localhost:6379/0"
 
+    database_url: str = ""
+    """asyncpg DSN, e.g. postgresql://actra:actra@localhost:5432/actra"""
+
+    require_auth0_jwt: bool = True
+    """If true, session_auth must include a valid access_token and all agent events must match verified sub."""
+
     auth0_domain: str = ""
     auth0_audience: str = "https://actra-api"
-    auth0_custom_api_client_id: str = ""
-    auth0_custom_api_client_secret: str = ""
+    # Custom API Client (Applications → APIs → your API → Add Application) linked to AUTH0_AUDIENCE.
+    # Used for Token Vault *access-token* exchange (Native apps cannot use refresh-token exchange).
+    auth0_token_exchange_client_id: str = ""
+    auth0_token_exchange_client_secret: str = ""
     auth0_google_connection_name: str = "google-oauth2"
 
     gemini_api_key: str = ""

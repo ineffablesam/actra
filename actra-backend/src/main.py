@@ -6,17 +6,28 @@ import logging
 import sys
 from typing import Any
 
+import asyncpg
 import structlog
 import websockets
 from websockets import ServerConnection
+from websockets.exceptions import ConnectionClosedError
 
 from src.config import get_settings
 from src.core.connection_manager import ConnectionManager
 from src.core.session_manager import SessionManager
+from src.db.postgres import close_pool, create_pool, init_schema
 from src.handlers.action_handler import ActionHandler
 from src.handlers.connection_handler import ConnectionHandler
 from src.handlers.transcript_handler import TranscriptHandler
-from src.models.events import ActionEditedEvent, SessionAuthEvent, parse_client_event
+from src.models.events import (
+    ActionEditedEvent,
+    ErrorEvent,
+    SessionAuthEvent,
+    SessionLogoutEvent,
+    parse_client_event,
+)
+from src.repos.users_repo import UsersRepository
+from src.services.auth0_jwt_service import Auth0JwtService
 from src.services.calendar_service import CalendarService
 from src.services.cartesia_service import CartesiaService
 from src.services.gemini_service import GeminiService
@@ -45,11 +56,14 @@ log = structlog.get_logger(__name__)
 
 
 class App:
-    def __init__(self) -> None:
+    def __init__(self, *, pg_pool: asyncpg.Pool | None = None) -> None:
         self.settings = get_settings()
+        self.pg_pool = pg_pool
         self.redis = RedisStore(self.settings)
         self.connections = ConnectionManager()
         self.sessions = SessionManager(self.redis)
+        self.users_repo = UsersRepository(pg_pool) if pg_pool is not None else None
+        self.auth0_jwt = Auth0JwtService(self.settings)
         self.gemini = GeminiService(self.settings)
         self.token_vault = TokenVaultService(self.settings, self.redis)
         self.cartesia = CartesiaService(self.settings)
@@ -75,6 +89,24 @@ class App:
             gmail=self.gmail,
         )
 
+    async def _send_ws_error(self, session_id: str, code: str, message: str) -> None:
+        if not session_id:
+            return
+        await self.connections.send_json(
+            session_id,
+            ErrorEvent(session_id=session_id, code=code, message=message).model_dump(),
+        )
+
+    async def _require_verified_user(self, session_id: str, user_id: str) -> bool:
+        ok = await self.sessions.verify_session_user(session_id, user_id)
+        if not ok:
+            await self._send_ws_error(
+                session_id,
+                "UNAUTHENTICATED",
+                "Send session_auth first; user_id must match the authenticated session.",
+            )
+        return ok
+
     async def process_message(self, ws: ServerConnection, data: dict[str, Any]) -> None:
         event = data.get("event")
         session_id = str(data.get("session_id", ""))
@@ -94,16 +126,83 @@ class App:
 
         if event == "session_auth":
             ev = SessionAuthEvent.model_validate(data)
+            s = self.settings
+            effective_sub: str
+
+            if s.require_auth0_jwt:
+                raw = (ev.access_token or "").strip()
+                if not raw:
+                    await self._send_ws_error(
+                        ev.session_id,
+                        "AUTH_REQUIRED",
+                        "session_auth must include access_token.",
+                    )
+                    return
+                try:
+                    claims = self.auth0_jwt.verify_access_token(raw)
+                except Exception as e:
+                    log.warning("session_auth_jwt_invalid", **err_ctx(e), exc_info=True)
+                    await self._send_ws_error(
+                        ev.session_id,
+                        "INVALID_TOKEN",
+                        "Invalid or expired access token.",
+                    )
+                    return
+                sub = str(claims.get("sub", "")).strip()
+                if not sub:
+                    await self._send_ws_error(ev.session_id, "INVALID_TOKEN", "Token missing sub claim.")
+                    return
+                if ev.user_id and ev.user_id != sub:
+                    log.warning(
+                        "session_auth_user_id_mismatch",
+                        client_user_id=ev.user_id,
+                        token_sub=sub,
+                    )
+                effective_sub = sub
+                email = claims.get("email") if isinstance(claims.get("email"), str) else None
+                if self.users_repo is not None:
+                    await self.users_repo.upsert_from_claims(auth0_sub=sub, email=email)
+                await self.sessions.set_verified_sub(ev.session_id, effective_sub)
+                await self.sessions.set_auth0_access_token(ev.session_id, raw)
+            else:
+                effective_sub = (ev.user_id or "").strip()
+                if not effective_sub:
+                    await self._send_ws_error(
+                        ev.session_id,
+                        "AUTH_REQUIRED",
+                        "user_id is required when REQUIRE_AUTH0_JWT is false.",
+                    )
+                    return
+                await self.sessions.set_verified_sub(ev.session_id, effective_sub)
+                at = (ev.access_token or "").strip()
+                if at:
+                    await self.sessions.set_auth0_access_token(ev.session_id, at)
+
+            if ev.refresh_token:
+                await self.sessions.set_refresh_token(ev.session_id, ev.refresh_token)
             log.info(
                 "session_auth_received",
                 session_id=ev.session_id,
-                user_id=ev.user_id,
-                refresh_token_chars=len(ev.refresh_token),
+                user_id=effective_sub,
+                refresh_token_chars=len(ev.refresh_token or ""),
+                access_token_chars=len((ev.access_token or "").strip()),
             )
-            await self.sessions.set_refresh_token(ev.session_id, ev.refresh_token)
+            return
+
+        if event == "session_logout":
+            ev = SessionLogoutEvent.model_validate(data)
+            if not await self._require_verified_user(ev.session_id, user_id):
+                return
+            await self.sessions.clear_session(ev.session_id)
+            await self.sessions.invalidate_user_providers(user_id)
+            await self.token_vault.clear_cached_access_tokens(user_id)
+            await self.connections.unregister(ev.session_id)
+            log.info("session_logout", session_id=ev.session_id, user_id=user_id)
             return
 
         if event == "transcript_received":
+            if not await self._require_verified_user(session_id, user_id):
+                return
             ev = parse_client_event(data)
             if hasattr(ev, "text"):
                 text_preview = (ev.text[:120] + "…") if len(ev.text) > 120 else ev.text
@@ -112,12 +211,16 @@ class App:
             return
 
         if event == "account_connected":
+            if not await self._require_verified_user(session_id, user_id):
+                return
             ev = parse_client_event(data)
             log.info("account_connected_event", provider=ev.provider)
             await self.connection_handler.on_account_connected(session_id, user_id, ev.provider)
             return
 
         if event == "action_confirmed":
+            if not await self._require_verified_user(session_id, user_id):
+                return
             ev = parse_client_event(data)
             log.info("action_confirmed_event", action_id=ev.action_id, confirmed=ev.confirmed)
             await self.action_handler.handle_confirmed(
@@ -129,6 +232,8 @@ class App:
             return
 
         if event == "action_edited":
+            if not await self._require_verified_user(session_id, user_id):
+                return
             ev = ActionEditedEvent.model_validate(data)
             uid = ev.user_id or user_id
             log.info("action_edited_event", action_id=ev.action_id)
@@ -142,6 +247,8 @@ class App:
             return
 
     async def ws_handler(self, ws: ServerConnection) -> None:
+        peer = getattr(ws, "remote_address", None)
+        peer_s = str(peer) if peer is not None else None
         try:
             async for message in ws:
                 if isinstance(message, bytes):
@@ -149,10 +256,9 @@ class App:
                 try:
                     data = json.loads(message)
                 except json.JSONDecodeError as e:
-                    peer = getattr(ws, "remote_address", None)
                     log.warning(
                         "ws_message_invalid_json",
-                        client_peer=str(peer) if peer is not None else None,
+                        client_peer=peer_s,
                         **err_ctx(e),
                     )
                     continue
@@ -166,19 +272,32 @@ class App:
                         **err_ctx(e),
                         exc_info=True,
                     )
+        except ConnectionClosedError:
+            pass
         finally:
             pass
 
 
 async def run() -> None:
     configure_logging()
-    app = App()
+    settings = get_settings()
+    pool: asyncpg.Pool | None = None
+    if settings.database_url:
+        pool = await create_pool(settings)
+        await init_schema(pool)
+    else:
+        log.warning("database_url_missing", hint="PostgreSQL user upsert disabled; set DATABASE_URL")
+
+    app = App(pg_pool=pool)
     await app.redis.connect()
     host = app.settings.ws_host
     port = app.settings.ws_port
-    async with websockets.serve(app.ws_handler, host, port):
-        structlog.get_logger(__name__).info("ws_listening", host=host, port=port)
-        await asyncio.Future()
+    try:
+        async with websockets.serve(app.ws_handler, host, port):
+            structlog.get_logger(__name__).info("ws_listening", host=host, port=port)
+            await asyncio.Future()
+    finally:
+        await close_pool(pool)
 
 
 def main() -> None:

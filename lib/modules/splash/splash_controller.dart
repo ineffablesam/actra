@@ -1,5 +1,8 @@
 import 'dart:async';
 
+import 'package:actra/core/auth0_service.dart';
+import 'package:actra/core/auth_session_service.dart';
+import 'package:actra/routes/app_pages.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_whisper_kit/flutter_whisper_kit.dart';
 import 'package:get/get.dart' hide Progress;
@@ -84,7 +87,19 @@ class SplashController extends GetxController {
   Future<void> _finishPrepareSuccess() async {
     await Future.delayed(const Duration(milliseconds: 600));
     isPreparing.value = false;
+    final hasSession = await Get.find<AuthSessionService>().hasCompleteSession();
+    if (hasSession) {
+      Get.offNamed(Routes.ONBOARDING);
+      return;
+    }
     isReady.value = true;
+  }
+
+  Future<void> onGetStarted() async {
+    final ok = await Get.find<Auth0Service>().signIn();
+    if (ok) {
+      Get.toNamed(Routes.ONBOARDING);
+    }
   }
 
   Future<void> retry() async {

@@ -121,53 +121,94 @@ class WebSocketService extends GetxService {
     ch.sink.add(jsonEncode(payload));
   }
 
-  /// Backend stores this in Redis so token exchange can reach Google APIs.
+  String _resolveUserId() {
+    if (Get.isRegistered<AuthSessionService>()) {
+      final id = Get.find<AuthSessionService>().userId.value;
+      if (id != null && id.isNotEmpty) {
+        return id;
+      }
+    }
+    return '';
+  }
+
+  /// Backend verifies JWT and stores refresh token for Google Token Vault exchange.
   void sendSessionAuth({
     required String userId,
     required String refreshToken,
+    required String accessToken,
   }) {
     sendJson({
       'event': 'session_auth',
       'session_id': sessionId,
       'user_id': userId,
       'refresh_token': refreshToken,
+      'access_token': accessToken,
+    });
+  }
+
+  /// Clears Redis session + cached provider tokens for this socket (requires prior [sendSessionAuth]).
+  void sendSessionLogout() {
+    final uid = _resolveUserId();
+    if (uid.isEmpty) {
+      return;
+    }
+    sendJson({
+      'event': 'session_logout',
+      'session_id': sessionId,
+      'user_id': uid,
     });
   }
 
   void sendTranscript(String text) {
+    final uid = _resolveUserId();
+    if (uid.isEmpty) {
+      return;
+    }
     sendJson({
       'event': 'transcript_received',
       'session_id': sessionId,
-      'user_id': Env.devUserId,
+      'user_id': uid,
       'text': text,
       'timestamp': DateTime.now().toUtc().toIso8601String(),
     });
   }
 
   void sendAccountConnected(String provider) {
+    final uid = _resolveUserId();
+    if (uid.isEmpty) {
+      return;
+    }
     sendJson({
       'event': 'account_connected',
       'session_id': sessionId,
-      'user_id': Env.devUserId,
+      'user_id': uid,
       'provider': provider,
     });
   }
 
   void sendActionConfirmed(String actionId, {required bool confirmed}) {
+    final uid = _resolveUserId();
+    if (uid.isEmpty) {
+      return;
+    }
     sendJson({
       'event': 'action_confirmed',
       'session_id': sessionId,
-      'user_id': Env.devUserId,
+      'user_id': uid,
       'action_id': actionId,
       'confirmed': confirmed,
     });
   }
 
   void sendActionEdited(String actionId, Map<String, dynamic> editedPayload) {
+    final uid = _resolveUserId();
+    if (uid.isEmpty) {
+      return;
+    }
     sendJson({
       'event': 'action_edited',
       'session_id': sessionId,
-      'user_id': Env.devUserId,
+      'user_id': uid,
       'action_id': actionId,
       'edited_payload': editedPayload,
     });

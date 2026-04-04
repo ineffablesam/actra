@@ -3,8 +3,10 @@
 import 'package:actra/chat/controllers/chat_controller.dart';
 import 'package:actra/chat/services/websocket_service.dart';
 import 'package:actra/chat/widgets/chat_message_list.dart';
+import 'package:actra/core/auth0_service.dart';
 import 'package:actra/modules/audio/audio_controller.dart';
 import 'package:actra/modules/onboarding/onboarding_controller.dart';
+import 'package:actra/routes/app_pages.dart';
 import 'package:actra/modules/shader/shader_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -80,6 +82,26 @@ class OnboardingView extends GetView<OnboardingController> {
                           ),
                         ),
                         const Spacer(),
+                        Obx(() {
+                          final busy = Get.find<Auth0Service>().isBusy.value;
+                          return TextButton(
+                            onPressed: busy
+                                ? null
+                                : () async {
+                                    await Get.find<Auth0Service>().signOut();
+                                    Get.offAllNamed(Routes.SPLASH);
+                                  },
+                            child: Text(
+                              'Log out',
+                              style: GoogleFonts.instrumentSans(
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w600,
+                                color: const Color(0xFFB42318),
+                              ),
+                            ),
+                          );
+                        }),
+                        SizedBox(width: 4.w),
                         Obx(() {
                           final st = Get.find<WebSocketService>().status.value;
                           final c = switch (st) {

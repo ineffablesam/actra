@@ -6,12 +6,21 @@ from pydantic import BaseModel, Field
 
 
 class SessionAuthEvent(BaseModel):
-    """Client sends Auth0 refresh token once per session for Token Vault exchange."""
+    """Client sends Auth0 tokens: access_token for API verification, refresh for Token Vault."""
 
     event: Literal["session_auth"] = "session_auth"
     session_id: str
-    user_id: str
-    refresh_token: str
+    user_id: str = ""
+    refresh_token: str = ""
+    access_token: str | None = None
+
+
+class SessionLogoutEvent(BaseModel):
+    """Client clears server-side session state; requires prior session_auth for this socket."""
+
+    event: Literal["session_logout"] = "session_logout"
+    session_id: str
+    user_id: str = ""
 
 
 class TranscriptReceivedEvent(BaseModel):
@@ -100,6 +109,7 @@ class ErrorEvent(BaseModel):
 
 ClientEvent = Union[
     SessionAuthEvent,
+    SessionLogoutEvent,
     TranscriptReceivedEvent,
     AccountConnectedEvent,
     ActionConfirmedEvent,
@@ -121,6 +131,8 @@ def parse_client_event(data: dict[str, Any]) -> ClientEvent:
     kind = data.get("event")
     if kind == "session_auth":
         return SessionAuthEvent.model_validate(data)
+    if kind == "session_logout":
+        return SessionLogoutEvent.model_validate(data)
     if kind == "transcript_received":
         return TranscriptReceivedEvent.model_validate(data)
     if kind == "account_connected":

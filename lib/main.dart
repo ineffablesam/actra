@@ -1,3 +1,7 @@
+import 'package:actra/core/auth0_my_account_linking.dart';
+import 'package:actra/core/auth0_service.dart';
+import 'package:actra/core/auth_session_service.dart';
+import 'package:actra/core/connected_accounts_service.dart';
 import 'package:actra/routes/app_pages.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -11,6 +15,11 @@ import 'modules/shader/shader_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  Get.put(AuthSessionService(), permanent: true);
+  await Get.find<AuthSessionService>().hydrateFromStorage();
+  Get.put(Auth0Service(), permanent: true);
+  Get.put(Auth0MyAccountLinking(), permanent: true);
+  Get.put(ConnectedAccountsService(), permanent: true);
   Get.put(ShaderController(), permanent: true);
   await LiquidGlassWidgets.initialize();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);

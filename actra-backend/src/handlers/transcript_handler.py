@@ -7,6 +7,7 @@ from typing import Any
 
 import structlog
 
+from src.constants import SUPPORTED_PROVIDERS
 from src.core.connection_manager import ConnectionManager
 from src.core.session_manager import SessionManager
 from src.models.events import (
@@ -23,7 +24,7 @@ from src.services.cartesia_service import CartesiaService
 from src.services.gemini_service import GeminiService
 from src.services.calendar_service import CalendarService
 from src.services.gmail_service import GmailService
-from src.services.token_vault_service import TokenVaultService
+from src.services.token_vault_service import TokenVaultExchangeError, TokenVaultService
 from src.utils.service_log import err_ctx
 
 logger = structlog.get_logger(__name__)
@@ -64,16 +65,39 @@ class TranscriptHandler:
 
         analysis = await self._gemini.analyze_intent(text)
         intent = str(analysis.get("intent", "unknown"))
-        required = list(analysis.get("required_providers", []))
+        raw_required = list(analysis.get("required_providers", []))
+        required = [p for p in raw_required if p in SUPPORTED_PROVIDERS]
+        unsupported_req = [p for p in raw_required if p not in SUPPORTED_PROVIDERS]
         entities = dict(analysis.get("entities", {}))
         reasoning = str(analysis.get("reasoning", ""))
+        user_message = str(analysis.get("user_message", "")).strip()
 
         log.info(
             "intent_analyzed",
             intent=intent,
             required_providers=required,
+            raw_required_providers=raw_required,
+            unsupported_req=unsupported_req,
             confidence=analysis.get("confidence"),
         )
+
+        is_unsupported_intent = intent in ("unsupported", "not_supported")
+        if is_unsupported_intent or unsupported_req:
+            log.info(
+                "unsupported_capability",
+                is_unsupported_intent=is_unsupported_intent,
+                unsupported_req=unsupported_req,
+            )
+            if is_unsupported_intent and user_message:
+                full_reply = user_message
+            else:
+                full_reply = await self._gemini.unsupported_capability_reply(
+                    user_text=text,
+                    reasoning=reasoning or None,
+                    invalid_providers=unsupported_req or None,
+                )
+            await self._stream_agent_response(session_id, full_reply, log)
+            return
 
         connected = await self._sessions.get_user_connected_providers(user_id) or []
         missing = [p for p in required if p not in connected]
@@ -120,18 +144,18 @@ class TranscriptHandler:
             )
             context_snippets: dict[str, Any] = {}
         else:
-            refresh = await self._sessions.get_refresh_token(session_id)
-            if not refresh:
+            auth0_at = await self._sessions.get_auth0_access_token(session_id)
+            if not auth0_at:
                 log.warning(
-                    "auth_required_no_refresh_token",
-                    hint="Client must send session_auth event with Auth0 refresh_token after WS connect.",
+                    "auth_required_no_access_token",
+                    hint="Client must send session_auth with Auth0 access_token (API audience) after WS connect.",
                 )
                 await self._send(
                     session_id,
                     ErrorEvent(
                         session_id=session_id,
                         code="AUTH_REQUIRED",
-                        message="Send session_auth with a refresh token so the server can reach Google APIs.",
+                        message="Send session_auth with an access token (for your API audience) so the server can reach Google APIs.",
                         recoverable=True,
                     ).model_dump(),
                 )
@@ -145,13 +169,56 @@ class TranscriptHandler:
                     tok = await self._token_vault.get_access_token(
                         user_id,
                         provider,
-                        refresh_token=refresh,
+                        auth0_access_token=auth0_at,
                     )
                     if provider == "google_calendar":
                         events = await self._calendar.list_next_events(tok, max_results=3)
                         context_snippets["calendar"] = events
                     if provider == "google_gmail":
-                        context_snippets["gmail"] = "ready"
+                        if intent == "read_emails":
+                            rows = await self._gmail.fetch_inbox_summary(
+                                tok,
+                                max_results=10,
+                                user_query=text,
+                            )
+                            context_snippets["gmail"] = rows
+                            if not rows:
+                                context_snippets["gmail_search_note"] = (
+                                    "Gmail search returned zero messages for this query. "
+                                    "Do not claim the user has no mail in general. Say no matches "
+                                    "for this search; sender names may differ (e.g. bank codes), "
+                                    "or the message may be under Promotions, Updates, or Spam."
+                                )
+                        else:
+                            context_snippets["gmail"] = {
+                                "connected": True,
+                                "intent": intent,
+                            }
+                except TokenVaultExchangeError as e:
+                    log.error(
+                        "context_fetch_failed",
+                        service=provider,
+                        operation="token_exchange_or_google_fetch",
+                        auth0_hint=e.auth0_hint[:200] if e.auth0_hint else None,
+                        **err_ctx(e),
+                        exc_info=True,
+                    )
+                    msg = (
+                        e.client_message
+                        if e.client_message
+                        else "Could not retrieve Google access token. Reconnect your account."
+                    )
+                    code = e.ws_error_code
+                    await self._send(
+                        session_id,
+                        ErrorEvent(
+                            session_id=session_id,
+                            code=code,
+                            message=msg,
+                            recoverable=True,
+                        ).model_dump(),
+                    )
+                    return
                 except Exception as e:
                     log.error(
                         "context_fetch_failed",
@@ -178,6 +245,32 @@ class TranscriptHandler:
             context_snippets=context_snippets,
         )
 
+        await self._stream_agent_response(session_id, full, log)
+
+        if intent == "send_email":
+            action_id = str(uuid.uuid4())
+            to_addr = str(entities.get("to", "recipient@example.com"))
+            if "@" not in to_addr:
+                to_addr = f"{to_addr}@example.com"
+            subj = str(entities.get("subject", "Message from Actra"))
+            body = full
+            draft = await self._gmail.draft_send_preview(
+                "",
+                to_email=to_addr,
+                subject=subj,
+                body=body,
+            )
+            await self._send(
+                session_id,
+                DraftReadyEvent(
+                    session_id=session_id,
+                    action_id=action_id,
+                    type="email",
+                    payload=draft,
+                ).model_dump(),
+            )
+
+    async def _stream_agent_response(self, session_id: str, full_text: str, log: Any) -> None:
         async def emit_agent(chunk: str) -> None:
             await self._send(
                 session_id,
@@ -196,8 +289,8 @@ class TranscriptHandler:
             )
 
         parallel = await asyncio.gather(
-            self._gemini.emit_stream_chunks(full, emit_agent),
-            self._cartesia.stream_tts(full, session_id, on_audio),
+            self._gemini.emit_stream_chunks(full_text, emit_agent),
+            self._cartesia.stream_tts(full_text, session_id, on_audio),
             return_exceptions=True,
         )
         gemini_result, cartesia_result = parallel
@@ -259,29 +352,6 @@ class TranscriptHandler:
                 done=True,
             ).model_dump(),
         )
-
-        if intent == "send_email":
-            action_id = str(uuid.uuid4())
-            to_addr = str(entities.get("to", "recipient@example.com"))
-            if "@" not in to_addr:
-                to_addr = f"{to_addr}@example.com"
-            subj = str(entities.get("subject", "Message from Actra"))
-            body = full
-            draft = await self._gmail.draft_send_preview(
-                "",
-                to_email=to_addr,
-                subject=subj,
-                body=body,
-            )
-            await self._send(
-                session_id,
-                DraftReadyEvent(
-                    session_id=session_id,
-                    action_id=action_id,
-                    type="email",
-                    payload=draft,
-                ).model_dump(),
-            )
 
     async def resume_after_connections(self, session_id: str, user_id: str) -> None:
         pending = await self._sessions.get_pending_task(session_id)

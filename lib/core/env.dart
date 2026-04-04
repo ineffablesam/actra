@@ -10,9 +10,10 @@ abstract final class Env {
     defaultValue: 'dev-0uu1-z5v.us.auth0.com',
   );
 
+  /// Native app client ID from Auth0 Dashboard.
   static const String auth0ClientId = String.fromEnvironment(
     'AUTH0_CLIENT_ID',
-    defaultValue: '',
+    defaultValue: 'YsC2d2MKodUUJo7sdH60yu9tbPEgtUgR',
   );
 
   static const String auth0Audience = String.fromEnvironment(
@@ -20,20 +21,27 @@ abstract final class Env {
     defaultValue: 'https://actra-api',
   );
 
+  /// When `true` (default), sends `audience` to Auth0. If login fails with
+  /// `access_denied` / Unauthorized, authorize this app for your API in the Auth0
+  /// Dashboard (Applications → Actra → APIs), or set to `false` and clear
+  /// `AUTH0_AUDIENCE` on the backend for local dev only.
+  static const String auth0RequestAudience = String.fromEnvironment(
+    'AUTH0_REQUEST_AUDIENCE',
+    defaultValue: 'true',
+  );
+
+  static bool get auth0RequestAudienceBool =>
+      auth0RequestAudience.toLowerCase() != 'false';
+
+  /// Must match Auth0 Allowed Callback URLs: `{auth0Scheme}://login-callback`
   static const String auth0Scheme = String.fromEnvironment(
     'AUTH0_SCHEME',
     defaultValue: 'com.actra.app',
   );
 
-  /// Dev placeholder until Auth0 login persists a real subject.
-  static const String devUserId = String.fromEnvironment(
-    'ACTRA_USER_ID',
-    defaultValue: 'auth0|actra-dev',
-  );
-
-  /// **Dev only:** Auth0 refresh token for `session_auth` (do not ship in production builds).
-  static const String devAuth0RefreshToken = String.fromEnvironment(
-    'AUTH0_REFRESH_TOKEN',
-    defaultValue: '',
+  /// Same as backend `AUTH0_GOOGLE_CONNECTION_NAME` (Auth0 Dashboard → Social → Google).
+  static const String auth0GoogleConnectionName = String.fromEnvironment(
+    'AUTH0_GOOGLE_CONNECTION_NAME',
+    defaultValue: 'google-oauth2',
   );
 }

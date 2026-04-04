@@ -5,6 +5,9 @@ import 'package:actra/chat/models/message_type.dart';
 import 'package:actra/chat/models/server_events.dart';
 import 'package:actra/chat/services/audio_service.dart';
 import 'package:actra/chat/services/websocket_service.dart';
+import 'package:actra/core/auth_session_service.dart';
+import 'package:actra/core/connected_accounts_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
 
@@ -162,6 +165,16 @@ class ChatController extends GetxController {
 
   void sendUserTranscript(String text) {
     if (text.trim().isEmpty) return;
+    if (Get.isRegistered<AuthSessionService>()) {
+      final uid = Get.find<AuthSessionService>().userId.value;
+      if (uid == null || uid.isEmpty) {
+        Get.snackbar(
+          'Sign in required',
+          'Complete Auth0 sign-in from the splash screen first.',
+        );
+        return;
+      }
+    }
     messages.add(
       ChatMessage(
         id: _uuid.v4(),
@@ -181,6 +194,25 @@ class ChatController extends GetxController {
       'subject': draft.subject,
       'body': draft.body,
     });
+  }
+
+  /// Links Google via Auth0 Connected Accounts (Token Vault), then notifies the backend.
+  Future<void> connectProvider(String provider) async {
+    debugPrint('[Chat] connectProvider tapped provider=$provider');
+    if (!Get.isRegistered<ConnectedAccountsService>()) {
+      debugPrint('[Chat] connectProvider abort: ConnectedAccountsService not registered');
+      Get.snackbar('Error', 'Account linking is not available.');
+      return;
+    }
+    final ok =
+        await Get.find<ConnectedAccountsService>().connectGoogleConnection(provider);
+    if (!ok) {
+      debugPrint('[Chat] connectProvider finished ok=false (see ConnectedAccounts logs)');
+      return;
+    }
+    debugPrint('[Chat] connectProvider success, sending account_connected');
+    _ws?.sendAccountConnected(provider);
+    pendingProviders.remove(provider);
   }
 
   @override

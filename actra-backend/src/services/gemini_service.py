@@ -15,7 +15,21 @@ logger = structlog.get_logger(__name__)
 
 _SERVICE = "gemini"
 
-INTENT_SYSTEM = """ You are Actra, a voice AI assistant. Analyze the user's request and return ONLY valid JSON with this exact schema - no markdown, no explanation, JSON only: { "intent": "send_email" | "create_event" | "read_emails" | "check_calendar" | "unknown", "required_providers": ["google_gmail", "google_calendar"], "confidence": 0.0-1.0, "entities": { "to": "person name or email if mentioned", "subject": "inferred subject line", "topic": "what the message is about", "date": "any date/time mentioned", "body_hints": ["key points to include"] }, "reasoning": "why these providers are needed" } """
+INTENT_SYSTEM = """ You are Actra, a voice AI assistant. Analyze the user's request and return ONLY valid JSON with this exact schema - no markdown, no explanation, JSON only:
+{ "intent": "send_email" | "create_event" | "read_emails" | "check_calendar" | "unknown" | "unsupported",
+  "required_providers": ["google_gmail", "google_calendar"],
+  "confidence": 0.0-1.0,
+  "entities": { "to": "person name or email if mentioned", "subject": "inferred subject line", "topic": "what the message is about", "date": "any date/time mentioned", "body_hints": ["key points to include"] },
+  "reasoning": "why these providers are needed, or why the request is out of scope",
+  "user_message": "when intent is unsupported: one short friendly sentence the user will hear"
+}
+
+Hard rules:
+- Actra only has TWO integrations: google_gmail (email) and google_calendar (calendar). Nothing else exists in this product.
+- Any request to read, list, summarize, or identify the latest or recent email (inbox, unread, "who wrote", "last message") MUST use intent "read_emails" and include "google_gmail" in required_providers.
+- In required_providers, use ONLY these exact strings when needed: "google_gmail", "google_calendar". Never invent other provider IDs.
+- If the user asks for anything that needs another app or service (examples: Slack, Teams, Google Drive-only tasks, Photos, Spotify, banking, shopping, generic web search, weather without calendar, SMS/iMessage, WhatsApp, Notion, Jira, etc.), set intent to "unsupported", required_providers to [], and put a warm, concise user_message explaining that you can help with Gmail and Google Calendar, and offer one example of what they can ask instead.
+- If the request is vague or chit-chat with no Google data needed, use intent "unknown" and required_providers []. """
 
 
 class GeminiService:
@@ -39,6 +53,7 @@ class GeminiService:
                 "confidence": 0.0,
                 "entities": {},
                 "reasoning": "GEMINI_API_KEY not configured",
+                "user_message": "",
             }
         prompt = f"{INTENT_SYSTEM}\n\nUser said:\n{text}\n"
         try:
@@ -63,6 +78,7 @@ class GeminiService:
                 "confidence": 0.0,
                 "entities": {},
                 "reasoning": str(e),
+                "user_message": "",
             }
 
     def _parse_json_response(self, raw: str) -> dict[str, Any]:
@@ -87,7 +103,53 @@ class GeminiService:
                 "confidence": 0.0,
                 "entities": {},
                 "reasoning": f"Model returned invalid JSON: {e}",
+                "user_message": "",
             }
+
+    async def unsupported_capability_reply(
+        self,
+        *,
+        user_text: str,
+        reasoning: str | None,
+        invalid_providers: list[str] | None,
+    ) -> str:
+        """Spoken reply when the user asks for capabilities outside Gmail/Calendar."""
+        system = (
+            "You are Actra, a concise voice assistant. Reply in plain text only, no markdown. "
+            "The user asked for something you cannot do: Actra only integrates Gmail and Google Calendar. "
+            "Be warm, brief (2-4 sentences). Acknowledge their request, explain the limit, "
+            "and suggest something you can do (email, calendar, events, drafts)."
+        )
+        parts = [f"User said: {user_text}"]
+        if reasoning:
+            parts.append(f"Analysis: {reasoning}")
+        if invalid_providers:
+            parts.append(f"Invalid or unavailable integrations mentioned: {', '.join(invalid_providers)}")
+        prompt = f"{system}\n\n" + "\n".join(parts)
+        if not self._settings.gemini_api_key or self._client is None:
+            return (
+                "I can only help with Gmail and Google Calendar right now — things like sending email "
+                "or checking your schedule. Ask me about mail or your calendar anytime."
+            )
+        try:
+            resp = await self._client.aio.models.generate_content(
+                model=self._settings.gemini_model,
+                contents=prompt,
+            )
+            return (resp.text or "").strip()
+        except Exception as e:
+            logger.error(
+                "gemini_unsupported_reply_failed",
+                service=_SERVICE,
+                operation="unsupported_capability_reply",
+                model=self._settings.gemini_model,
+                **err_ctx(e),
+                exc_info=True,
+            )
+            return (
+                "I can only connect to Gmail and Google Calendar at the moment. "
+                "Try asking me to send an email or what’s on your calendar."
+            )
 
     async def draft_full_text(
         self,
@@ -97,8 +159,17 @@ class GeminiService:
         context_snippets: dict[str, Any],
     ) -> str:
         system = (
-            "You are Actra, a concise voice assistant. Reply in plain text only, "
-            "no markdown fences. Help the user with their request."
+            "You are Actra, a natural voice assistant. Reply in plain text only, no markdown. "
+            "Sound human: warm, clear, and direct — never robotic or like a status message. "
+            "When Context includes gmail (a list of messages with from, subject, date, snippet), "
+            "use it to answer. For 'latest' or 'last' email with no specific search, use the first "
+            "item (newest first). Mention sender and subject; summarize the snippet in your own words. "
+            "Do not say you are retrieving, loading, or checking — you already have the data. "
+            "If gmail is an empty list but gmail_search_note is present, follow that note: "
+            "do not say there is no email from that sender everywhere — only that this search "
+            "did not match; suggest Promotions, Updates, or Spam, or different wording. "
+            "If the list is empty and there is no gmail_search_note, say the inbox looks empty. "
+            "When Context includes calendar events, summarize them helpfully."
         )
         prompt = f"{system}\n\nContext: {context_snippets}\n\nUser request: {user_text}\nIntent: {intent}\n"
         if not self._settings.gemini_api_key or self._client is None:
