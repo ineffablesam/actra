@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:actra/modules/onboarding/onboarding_controller.dart';
+import 'package:actra/modules/home/home_controller.dart';
 import 'package:actra/utils/colors.dart';
 import 'package:actra/utils/sf_font.dart';
 import 'package:flutter/material.dart';
@@ -500,12 +500,12 @@ class _StickyBottomButtonState extends State<_StickyBottomButton>
 // ─────────────────────────────────────────────────────────────────────────────
 // MAIN INTEREST VIEW
 // ─────────────────────────────────────────────────────────────────────────────
-class InterestView extends GetView<OnboardingController> {
+class InterestView extends GetView<HomeController> {
   const InterestView({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final controller = Get.find<OnboardingController>();
+    final controller = Get.find<HomeController>();
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.dark,
@@ -564,7 +564,7 @@ class InterestView extends GetView<OnboardingController> {
               Obx(() {
                 return _StickyBottomButton(
                   selectedCount: controller.selectedCount,
-                  onContinue: controller.finishOnboarding,
+                  onContinue: controller.finishHomeFlow,
                 );
               }),
             ],

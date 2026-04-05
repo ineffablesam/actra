@@ -3,10 +3,17 @@ services:
     build: .
     ports:
       - "8765:8765"
+      - "8000:8000"
     env_file:
       - .env
+    environment:
+      # Persist Chroma on the named volume (override host .env if it points to ./data/chroma)
+      MEMORY_CHROMA_PATH: /data/chroma
+      # Optional: fewer Hub rate-limit warnings / faster model download (see .env.example)
+      HF_TOKEN: ${HF_TOKEN:-}
     volumes:
       - ./src:/app/src
+      - chroma-data:/data/chroma
     depends_on:
       postgres:
         condition: service_healthy
@@ -51,3 +58,4 @@ services:
 volumes:
   redis-data:
   postgres-data:
+  chroma-data:

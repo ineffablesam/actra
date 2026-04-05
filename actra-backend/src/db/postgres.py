@@ -23,6 +23,21 @@ async def init_schema(pool: asyncpg.Pool) -> None:
             );
             """
         )
+        await conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS agent_memories (
+                id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+                user_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                importance_score DOUBLE PRECISION NOT NULL,
+                metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+                chroma_id TEXT,
+                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            );
+            CREATE INDEX IF NOT EXISTS idx_agent_memories_user_created
+                ON agent_memories (user_id, created_at DESC);
+            """
+        )
 
 
 async def close_pool(pool: asyncpg.Pool | None) -> None:

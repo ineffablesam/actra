@@ -16,20 +16,21 @@ logger = structlog.get_logger(__name__)
 _SERVICE = "gemini"
 
 INTENT_SYSTEM = """ You are Actra, a voice AI assistant. Analyze the user's request and return ONLY valid JSON with this exact schema - no markdown, no explanation, JSON only:
-{ "intent": "send_email" | "create_event" | "read_emails" | "check_calendar" | "unknown" | "unsupported",
-  "required_providers": ["google_gmail", "google_calendar"],
+{ "intent": "send_email" | "create_event" | "read_emails" | "check_calendar" | "slack_workspace" | "unknown" | "unsupported",
+  "required_providers": ["google_gmail", "google_calendar", "slack"],
   "confidence": 0.0-1.0,
-  "entities": { "to": "person name or email if mentioned", "subject": "inferred subject line", "topic": "what the message is about", "date": "any date/time mentioned", "body_hints": ["key points to include"] },
+  "entities": { "to": "person name or email if mentioned", "subject": "inferred subject line", "topic": "what the message is about", "date": "any date/time mentioned", "body_hints": ["key points to include"], "channel": "Slack channel name if mentioned" },
   "reasoning": "why these providers are needed, or why the request is out of scope",
   "user_message": "when intent is unsupported: one short friendly sentence the user will hear"
 }
 
 Hard rules:
-- Actra only has TWO integrations: google_gmail (email) and google_calendar (calendar). Nothing else exists in this product.
+- Actra integrations: google_gmail (email), google_calendar (calendar), slack (Slack workspace — channels, team context via Token Vault).
 - Any request to read, list, summarize, or identify the latest or recent email (inbox, unread, "who wrote", "last message") MUST use intent "read_emails" and include "google_gmail" in required_providers.
-- In required_providers, use ONLY these exact strings when needed: "google_gmail", "google_calendar". Never invent other provider IDs.
-- If the user asks for anything that needs another app or service (examples: Slack, Teams, Google Drive-only tasks, Photos, Spotify, banking, shopping, generic web search, weather without calendar, SMS/iMessage, WhatsApp, Notion, Jira, etc.), set intent to "unsupported", required_providers to [], and put a warm, concise user_message explaining that you can help with Gmail and Google Calendar, and offer one example of what they can ask instead.
-- If the request is vague or chit-chat with no Google data needed, use intent "unknown" and required_providers []. """
+- Requests about Slack: listing channels, what's in Slack, team/workspace, messages in a channel, posting to Slack, or "check Slack" MUST use intent "slack_workspace" and include "slack" in required_providers.
+- In required_providers, use ONLY these exact strings when needed: "google_gmail", "google_calendar", "slack". Never invent other provider IDs.
+- If the user asks for anything that needs another app or service not listed above (examples: Teams-only, Google Drive-only, Photos, Spotify, banking, generic web search, SMS, WhatsApp, Notion, Jira), set intent to "unsupported", required_providers to [], and put a warm, concise user_message explaining limits and one example of what they can ask instead.
+- If the request is vague or chit-chat with no Google or Slack data needed, use intent "unknown" and required_providers []. """
 
 
 class GeminiService:
@@ -116,9 +117,9 @@ class GeminiService:
         """Spoken reply when the user asks for capabilities outside Gmail/Calendar."""
         system = (
             "You are Actra, a concise voice assistant. Reply in plain text only, no markdown. "
-            "The user asked for something you cannot do: Actra only integrates Gmail and Google Calendar. "
+            "The user asked for something you cannot do: Actra integrates Gmail, Google Calendar, and Slack. "
             "Be warm, brief (2-4 sentences). Acknowledge their request, explain the limit, "
-            "and suggest something you can do (email, calendar, events, drafts)."
+            "and suggest something you can do (email, calendar, Slack, drafts)."
         )
         parts = [f"User said: {user_text}"]
         if reasoning:
@@ -128,8 +129,8 @@ class GeminiService:
         prompt = f"{system}\n\n" + "\n".join(parts)
         if not self._settings.gemini_api_key or self._client is None:
             return (
-                "I can only help with Gmail and Google Calendar right now — things like sending email "
-                "or checking your schedule. Ask me about mail or your calendar anytime."
+                "I can help with Gmail, Google Calendar, and Slack — things like email, your schedule, "
+                "or your workspace. Ask me about mail, calendar, or Slack anytime."
             )
         try:
             resp = await self._client.aio.models.generate_content(
@@ -147,8 +148,8 @@ class GeminiService:
                 exc_info=True,
             )
             return (
-                "I can only connect to Gmail and Google Calendar at the moment. "
-                "Try asking me to send an email or what’s on your calendar."
+                "I can connect to Gmail, Google Calendar, and Slack. "
+                "Try asking me to send an email, check your calendar, or something about Slack."
             )
 
     async def draft_full_text(
@@ -157,6 +158,7 @@ class GeminiService:
         user_text: str,
         intent: str,
         context_snippets: dict[str, Any],
+        memory_context: str | None = None,
     ) -> str:
         system = (
             "You are Actra, a natural voice assistant. Reply in plain text only, no markdown. "
@@ -169,9 +171,15 @@ class GeminiService:
             "do not say there is no email from that sender everywhere — only that this search "
             "did not match; suggest Promotions, Updates, or Spam, or different wording. "
             "If the list is empty and there is no gmail_search_note, say the inbox looks empty. "
-            "When Context includes calendar events, summarize them helpfully."
+            "When Context includes calendar events, summarize them helpfully. "
+            "When Context includes slack (team name, user, sample channel names), use it briefly; "
+            "do not invent channels or messages not shown."
         )
-        prompt = f"{system}\n\nContext: {context_snippets}\n\nUser request: {user_text}\nIntent: {intent}\n"
+        parts: list[str] = [system]
+        if memory_context:
+            parts.append(memory_context)
+        parts.append(f"\n\nContext: {context_snippets}\n\nUser request: {user_text}\nIntent: {intent}\n")
+        prompt = "\n".join(parts)
         if not self._settings.gemini_api_key or self._client is None:
             logger.warning(
                 "gemini_config_missing",

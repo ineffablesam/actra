@@ -1,10 +1,9 @@
+import 'package:actra/routes/app_pages.dart';
 import 'package:get/get.dart';
 
-class OnboardingController extends GetxController {
-  /// onboarding completed
-  final RxBool onboardingCompleted = false.obs;
+class HomeController extends GetxController {
+  final RxBool homeCompleted = false.obs;
 
-  /// loading state if needed later
   final RxBool isLoading = false.obs;
 
   final RxList<String> selectedInterests = <String>[].obs;
@@ -25,21 +24,19 @@ class OnboardingController extends GetxController {
 
   int get selectedCount => selectedInterests.length;
 
-  /// continue button
   void goToInterest() {
-    Get.offAllNamed('/interest');
+    Get.offAllNamed(Routes.INTREST);
   }
 
-  /// finish onboarding
-  Future<void> finishOnboarding() async {
+  Future<void> finishHomeFlow() async {
     isLoading.value = true;
 
     await Future.delayed(const Duration(milliseconds: 400));
 
-    onboardingCompleted.value = true;
+    homeCompleted.value = true;
 
     isLoading.value = false;
 
-    Get.offAllNamed('/layout');
+    Get.offAllNamed(Routes.LAYOUT);
   }
 }

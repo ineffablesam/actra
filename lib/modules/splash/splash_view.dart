@@ -17,8 +17,6 @@ class SplashView extends GetView<SplashController> {
 
   @override
   Widget build(BuildContext context) {
-    Get.put(SplashController());
-
     return Scaffold(
       backgroundColor: AppColors.scaffoldBg,
       body: Container(
@@ -62,10 +60,7 @@ class SplashView extends GetView<SplashController> {
               right: 10,
               child: SafeArea(
                 top: true,
-                child: SvgPicture.asset(
-                  'assets/images/autho0.svg',
-                  width: 90.w,
-                ),
+                child: SvgPicture.asset('assets/images/auth0.svg', width: 90.w),
               ),
             ),
 

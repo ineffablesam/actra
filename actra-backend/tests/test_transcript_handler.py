@@ -2,11 +2,13 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from src.config import Settings
 from src.handlers.transcript_handler import TranscriptHandler
 from src.services.calendar_service import CalendarService
 from src.services.cartesia_service import CartesiaService
 from src.services.gemini_service import GeminiService
 from src.services.gmail_service import GmailService
+from src.services.slack_service import SlackService
 from src.services.token_vault_service import TokenVaultService
 
 
@@ -30,6 +32,9 @@ async def test_handle_transcript_missing_connections():
     cartesia = MagicMock(spec=CartesiaService)
     gmail = MagicMock(spec=GmailService)
     cal = MagicMock(spec=CalendarService)
+    slack = MagicMock(spec=SlackService)
+    settings = MagicMock(spec=Settings)
+    settings.memory_short_term_context_n = 5
 
     h = TranscriptHandler(
         connections=connections,
@@ -39,6 +44,9 @@ async def test_handle_transcript_missing_connections():
         cartesia=cartesia,
         gmail=gmail,
         calendar=cal,
+        slack=slack,
+        settings=settings,
+        memory=None,
     )
 
     await h.handle_transcript("sid", "uid", "email sam")
@@ -69,6 +77,9 @@ async def test_handle_transcript_unsupported_capability():
     cartesia.stream_tts = AsyncMock()
     gmail = MagicMock(spec=GmailService)
     cal = MagicMock(spec=CalendarService)
+    slack = MagicMock(spec=SlackService)
+    settings = MagicMock(spec=Settings)
+    settings.memory_short_term_context_n = 5
 
     h = TranscriptHandler(
         connections=connections,
@@ -78,9 +89,12 @@ async def test_handle_transcript_unsupported_capability():
         cartesia=cartesia,
         gmail=gmail,
         calendar=cal,
+        slack=slack,
+        settings=settings,
+        memory=None,
     )
 
-    await h.handle_transcript("sid", "uid", "post this to Slack")
+    await h.handle_transcript("sid", "uid", "post this to Microsoft Teams")
 
     gemini.unsupported_capability_reply.assert_not_called()
     gemini.emit_stream_chunks.assert_called_once()
@@ -112,6 +126,9 @@ async def test_handle_transcript_invalid_provider_id_fallback():
     cartesia.stream_tts = AsyncMock()
     gmail = MagicMock(spec=GmailService)
     cal = MagicMock(spec=CalendarService)
+    slack = MagicMock(spec=SlackService)
+    settings = MagicMock(spec=Settings)
+    settings.memory_short_term_context_n = 5
 
     h = TranscriptHandler(
         connections=connections,
@@ -121,6 +138,9 @@ async def test_handle_transcript_invalid_provider_id_fallback():
         cartesia=cartesia,
         gmail=gmail,
         calendar=cal,
+        slack=slack,
+        settings=settings,
+        memory=None,
     )
 
     await h.handle_transcript("sid", "uid", "attach from Drive")

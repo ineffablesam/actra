@@ -31,6 +31,9 @@ build/
 *.egg-info/
 .eggs/
 
+# Local Chroma vector store
+data/
+
 # IDE / OS
 .idea/
 .vscode/

@@ -1,7 +1,7 @@
+import 'package:actra/modules/home/home_binding.dart';
+import 'package:actra/modules/home/home_view.dart';
 import 'package:actra/modules/layout/views/layout_view.dart';
 import 'package:actra/modules/onboarding/interest_view.dart';
-import 'package:actra/modules/onboarding/onboarding_binding.dart';
-import 'package:actra/modules/onboarding/onboarding_view.dart';
 import 'package:get/get.dart';
 
 import '../modules/splash/splash_binding.dart';
@@ -13,7 +13,7 @@ class AppPages {
   AppPages._();
 
   static const INITIAL = Routes.SPLASH;
-  static const ONBOARDING = Routes.ONBOARDING;
+  static const HOME = Routes.HOME;
   static const LAYOUT = Routes.LAYOUT;
 
   static final routes = [
@@ -23,14 +23,14 @@ class AppPages {
       binding: SplashBinding(),
     ),
     GetPage(
-      name: _Paths.ONBOARDING,
-      page: () => const OnboardingView(),
-      binding: OnboardingBinding(),
+      name: _Paths.HOME,
+      page: () => const HomeView(),
+      binding: HomeBinding(),
     ),
     GetPage(
       name: _Paths.INTREST,
       page: () => InterestView(),
-      binding: OnboardingBinding(),
+      binding: HomeBinding(),
     ),
     GetPage(name: _Paths.LAYOUT, page: () => const LayoutView()),
   ];

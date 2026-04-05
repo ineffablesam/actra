@@ -27,12 +27,13 @@ class ChatMessage {
     this.reason,
     this.taskContext,
     this.actionId,
+    this.connectionPromptPending = false,
   });
 
   final String id;
   MessageType type;
   String? text;
-  final List<String>? providers;
+  List<String>? providers;
   final DraftPayload? draft;
   final bool? success;
   final DateTime timestamp;
@@ -40,4 +41,7 @@ class ChatMessage {
   final String? reason;
   final String? taskContext;
   final String? actionId;
+
+  /// When [type] is [MessageType.connectionsRequired], true until resolved or partially updated.
+  bool connectionPromptPending;
 }

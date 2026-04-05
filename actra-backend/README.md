@@ -4,7 +4,8 @@ Python WebSocket server for the Actra voice assistant: Gemini intent + drafting,
 
 ## Prerequisites
 
-- Docker / Docker Compose (recommended), or Python 3.12 + Redis locally
+- **Docker / Docker Compose** (recommended way to run Postgres, Redis, Chroma, and the backend)
+- Or Python 3.12 + Redis + Postgres locally (see [Run (local)](#run-local))
 - API keys: `GEMINI_API_KEY`, `CARTESIA_API_KEY`
 - Auth0: **Native** app for login (Flutter), **Custom API** (`https://actra-api`), and a **Custom API Client** for Token Vault (see table below). Native apps are **public clients**, so the Dashboard will **not** offer the Token Vault grant on the Native application — that is expected. This backend uses **[access token exchange](https://auth0.com/docs/secure/tokens/token-vault/access-token-exchange-with-token-vault)** (subject = user’s Auth0 API JWT), not refresh-token exchange.
 
@@ -63,11 +64,39 @@ cp .env.example .env
 docker compose up --build
 ```
 
-WebSocket listens on **8765**. **PostgreSQL** is on **5432** (default credentials in `.env.example`). Redis is on **6379**. With `docker compose --profile dev up`, Redis Commander is on **8081**.
+From the **host machine** (and the **iOS Simulator**), services are:
 
-Set `DATABASE_URL` and `REQUIRE_AUTH0_JWT` in `.env`. The backend creates the `users` table on startup and upserts when `session_auth` includes a valid Auth0 access token.
+| Port | Service |
+|------|---------|
+| **8765** | WebSocket (`actra-backend`) |
+| **8000** | FastAPI — memory API + `/health` |
+| **5432** | PostgreSQL |
+| **6379** | Redis |
+
+With `docker compose --profile dev up`, Redis Commander is on **8081**.
+
+Use `.env` from `.env.example`: inside the container, `REDIS_URL` / `DATABASE_URL` point at the `redis` / `postgres` service names; **do not** change those for Docker. `MEMORY_CHROMA_PATH` is set to `/data/chroma` in Compose so vectors persist on the `chroma-data` volume.
+
+The first run may take a few minutes while **sentence-transformers** downloads the embedding model into the image layer.
+
+Set `DATABASE_URL` and `REQUIRE_AUTH0_JWT` in `.env`. The backend creates the `users` and `agent_memories` tables on startup and upserts when `session_auth` includes a valid Auth0 access token.
+
+### Slack (Token Vault)
+
+Federated token exchange uses **`AUTH0_SLACK_CONNECTION_NAME`** (must match the **connection name** in Auth0 → Authentication → Social → Slack; default `sign-in-with-slack` is wrong if your connection uses another slug). Provider id **`slack`**. Configure **Sign in with Slack** with **Connected Accounts for Token Vault**, Slack redirect `https://<YOUR_AUTH0_DOMAIN>/login/callback`, and **enable your Native app** on the connection’s **Applications** tab — otherwise `/me/v1/connected-accounts/connect` returns **404** (`A0E-404-0001`). See [Auth0 Slack integration](https://auth0.com/ai/docs/integrations/slack).
+
+Flutter: set `--dart-define=AUTH0_SLACK_CONNECTION_NAME=<exact-slug>`. The `invalid_target` refresh-token warning is normal until MRRT + `https://<tenant>/me/` is on the login refresh policy; the app falls back to PKCE for My Account.
+
+## Agent memory
+
+The server keeps a **short-term** conversation buffer in **Redis** (last 10 messages per user; the same window is used in prompts unless you lower `MEMORY_SHORT_TERM_CONTEXT_N`) and **long-term** embeddings in **Chroma** (local path from `MEMORY_CHROMA_PATH`, default `./data/chroma`). Important user lines are heuristically scored and embedded with **sentence-transformers** (`MEMORY_EMBEDDING_MODEL`, default `sentence-transformers/all-MiniLM-L6-v2`); the first run downloads the model.
+
+- **HTTP**: `GET http://localhost:8000/health`, `POST /memory/save`, `GET /memory/search?user_id=...&q=...`
+- **Transcripts**: Each turn appends to short-term memory, retrieves top-3 Chroma hits for the query, and injects the combined block into Gemini drafting.
 
 ## Run (local)
+
+Use this only if you are **not** using Docker for the backend.
 
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
@@ -80,10 +109,12 @@ PYTHONPATH=. python -m src.main
 
 The app plays TTS with **[flutter_soloud](https://pub.dev/packages/flutter_soloud)** buffer streams (`f32le` PCM). Version **^3.5.4** matches Dart **3.10**; upgrade to **^4.0.0** when you move to Dart **3.11+**.
 
-Point the app at your server, for example:
+**Backend in Docker** (default published ports): WebSocket **8765**, memory HTTP **8000**. Defaults in `lib/core/env.dart` match `127.0.0.1` for simulator/desktop. **Android emulator** cannot use `127.0.0.1` for the host — use **`10.0.2.2`** instead (e.g. `WS_URL=ws://10.0.2.2:8765`, `MEMORY_API_BASE_URL=http://10.0.2.2:8000`).
 
 ```bash
-flutter run --dart-define=WS_URL=ws://127.0.0.1:8765
+flutter run \
+  --dart-define=WS_URL=ws://127.0.0.1:8765 \
+  --dart-define=MEMORY_API_BASE_URL=http://127.0.0.1:8000
 ```
 
 ### Auth0 + `session_auth`

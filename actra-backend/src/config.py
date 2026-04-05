@@ -27,6 +27,10 @@ class Settings(BaseSettings):
     auth0_token_exchange_client_id: str = ""
     auth0_token_exchange_client_secret: str = ""
     auth0_google_connection_name: str = "google-oauth2"
+    """Auth0 social connection name for Google (Token Vault federated exchange)."""
+
+    auth0_slack_connection_name: str = "sign-in-with-slack"
+    """Auth0 Slack social connection name (Dashboard → Authentication → Social → Slack)."""
 
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
@@ -35,6 +39,21 @@ class Settings(BaseSettings):
     cartesia_voice_id: str = "f786b574-daa5-4673-aa0c-cbe3e8534c02"
     cartesia_model_id: str = "sonic-3"
     cartesia_sample_rate: int = 44100
+
+    # HTTP API (memory + health) — runs alongside the WebSocket server.
+    http_host: str = "0.0.0.0"
+    http_port: int = 8000
+
+    # Agent memory: Redis short-term buffer + Chroma long-term vectors (+ optional Postgres rows).
+    memory_short_term_max: int = 10
+    memory_short_term_context_n: int = 10
+    """How many recent messages to inject into the prompt (must be <= memory_short_term_max)."""
+    memory_chroma_path: str = "./data/chroma"
+    memory_chroma_collection: str = "agent_memories"
+    memory_retrieval_top_k: int = 8
+    """Chroma ANN hits per query (merged + reranked before the prompt)."""
+    memory_embedding_model: str = "sentence-transformers/all-MiniLM-L6-v2"
+    """Local sentence-transformers model id (downloads on first use)."""
 
 
 @lru_cache

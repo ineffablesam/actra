@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:actra/core/auth0_my_account_linking.dart';
+import 'package:actra/core/connected_accounts_permissions.dart';
 import 'package:actra/core/env.dart';
 import 'package:dio/dio.dart';
 import 'package:actra/core/connected_accounts_external_auth.dart';
@@ -18,27 +19,53 @@ class ConnectedAccountsService extends GetxService {
   String get _connectRedirect =>
       '${Env.auth0Scheme}://connected-accounts-callback';
 
-  List<String> _googleScopesForProvider(String provider) {
-    if (provider.contains('calendar')) {
-      return [
-        'openid',
-        'profile',
-        'https://www.googleapis.com/auth/calendar.readonly',
-        'https://www.googleapis.com/auth/calendar.events',
-      ];
-    }
-    return [
-      'openid',
-      'profile',
-      'https://www.googleapis.com/auth/gmail.send',
-      'https://www.googleapis.com/auth/gmail.readonly',
-    ];
+  /// Opens the browser to link Google; stores tokens in Auth0 Token Vault on success.
+  Future<bool> connectGoogleConnection(
+    String provider, {
+    bool showSuccessSnack = true,
+  }) async {
+    debugPrint('[ConnectedAccounts] connectGoogleConnection start provider=$provider');
+    return _runConnectFlow(
+      connection: Env.auth0GoogleConnectionName,
+      scopes: ConnectedAccountsPermissions.scopesForProvider(provider),
+      snackTitle: 'Sign in with Google',
+      snackBody: 'Safari will open — return here after you finish.',
+      successMessage: 'Google account linked to Token Vault.',
+      invalidConnectHint:
+          'Invalid connect response. Check Auth0 Connected Accounts on the Google connection.',
+      showSuccessSnack: showSuccessSnack,
+    );
   }
 
-  /// Opens the browser to link Google; stores tokens in Auth0 Token Vault on success.
-  Future<bool> connectGoogleConnection(String provider) async {
-    debugPrint('[ConnectedAccounts] connectGoogleConnection start provider=$provider');
+  /// Link Slack (Sign in with Slack) for Token Vault — same flow as Google, different connection.
+  ///
+  /// Scopes must match what your Slack app and Auth0 Slack connection allow
+  /// ([Auth0 Slack](https://auth0.com/ai/docs/integrations/slack)).
+  Future<bool> connectSlackConnection({bool showSuccessSnack = true}) async {
+    debugPrint(
+      '[ConnectedAccounts] connectSlackConnection connection=${Env.auth0SlackConnectionName}',
+    );
+    return _runConnectFlow(
+      connection: Env.auth0SlackConnectionName,
+      scopes: ConnectedAccountsPermissions.scopesForProvider('slack'),
+      snackTitle: 'Sign in with Slack',
+      snackBody: 'Safari will open — return here after you finish.',
+      successMessage: 'Slack workspace linked to Token Vault.',
+      invalidConnectHint:
+          'Invalid connect response. Check Auth0 Connected Accounts on the Slack connection.',
+      showSuccessSnack: showSuccessSnack,
+    );
+  }
 
+  Future<bool> _runConnectFlow({
+    required String connection,
+    required List<String> scopes,
+    required String snackTitle,
+    required String snackBody,
+    required String successMessage,
+    required String invalidConnectHint,
+    bool showSuccessSnack = true,
+  }) async {
     final myAccountAt =
         await Get.find<Auth0MyAccountLinking>().obtainAccessTokenForConnectedAccounts();
     if (myAccountAt == null) {
@@ -47,10 +74,10 @@ class ConnectedAccountsService extends GetxService {
     }
 
     final state = _uuid.v4();
-    final connection = Env.auth0GoogleConnectionName;
-    final scopes = _googleScopesForProvider(provider);
-
     final connectUrl = 'https://${Env.auth0Domain}/me/v1/connected-accounts/connect';
+    debugPrint(
+      '[ConnectedAccounts] POST connect connection=$connection redirect=$_connectRedirect',
+    );
     try {
       final connectResp = await _dio.post<Map<String, dynamic>>(
         connectUrl,
@@ -88,10 +115,7 @@ class ConnectedAccountsService extends GetxService {
           '[ConnectedAccounts] connect: bad connect_uri/ticket '
           'connectUriEmpty=${connectUri.isEmpty} ticketEmpty=${ticket == null || ticket.isEmpty}',
         );
-        Get.snackbar(
-          'Connect failed',
-          'Invalid connect response. Check Auth0 Connected Accounts on the Google connection.',
-        );
+        Get.snackbar('Connect failed', invalidConnectHint);
         return false;
       }
 
@@ -101,8 +125,8 @@ class ConnectedAccountsService extends GetxService {
       final startUri = baseConnect.replace(queryParameters: q);
       debugPrint('[ConnectedAccounts] opening browser auth url=${startUri.toString()}');
       Get.snackbar(
-        'Sign in with Google',
-        'Safari will open — return here after you finish.',
+        snackTitle,
+        snackBody,
         snackPosition: SnackPosition.BOTTOM,
         duration: const Duration(seconds: 4),
       );
@@ -157,17 +181,49 @@ class ConnectedAccountsService extends GetxService {
       );
 
       debugPrint('[ConnectedAccounts] connect flow succeeded');
-      Get.snackbar('Connected', 'Google account linked to Token Vault.');
+      if (showSuccessSnack) {
+        Get.snackbar('Connected', successMessage);
+      }
       return true;
     } on DioException catch (e) {
       debugPrint(
-        '[ConnectedAccounts] DioException during connect/complete '
+        '[ConnectedAccounts] DioException path=${e.requestOptions.uri} '
         'status=${e.response?.statusCode} data=${e.response?.data}',
       );
+      _snackbarForAuth0ConnectError(e, connectionId: connection);
       return false;
     } catch (e, st) {
       debugPrint('[ConnectedAccounts] unexpected error: $e\n$st');
       return false;
+    }
+  }
+
+  /// Auth0 [A0E-404-0001](https://auth0.com/docs/api/management/errors): connection slug wrong or app not linked.
+  void _snackbarForAuth0ConnectError(DioException e, {required String connectionId}) {
+    final status = e.response?.statusCode;
+    final data = e.response?.data;
+    String? detail;
+    if (data is Map) {
+      final d = data['detail'];
+      if (d is String) detail = d;
+    }
+    if (status == 404) {
+      Get.snackbar(
+        'Auth0: connection not found (404)',
+        'Connection "$connectionId" is missing or not enabled for this client. '
+        'Copy the exact name from Authentication → Social → [connection] into AUTH0_*_CONNECTION_NAME. '
+        'Enable your Native app on that connection\'s Applications tab. '
+        'Authorize User access for My Account API (Connected Accounts scopes).',
+        duration: const Duration(seconds: 16),
+      );
+      return;
+    }
+    if (status == 400 || status == 403) {
+      Get.snackbar(
+        'Connect failed (${status ?? '?'})',
+        detail ?? '$data',
+        duration: const Duration(seconds: 10),
+      );
     }
   }
 }

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:actra/chat/services/audio_service.dart';
+import 'package:actra/core/whisper_kit_service.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_whisper_kit/flutter_whisper_kit.dart';
@@ -41,7 +42,8 @@ class AudioController extends GetxController {
   final transcribedText = ''.obs;
   final partialText = ''.obs;
 
-  final _whisperKit = FlutterWhisperKit();
+  /// Must match [WhisperKitService] — one native plugin instance for the whole app.
+  FlutterWhisperKit get _whisperKit => Get.find<WhisperKitService>().plugin;
 
   final AudioPlayer _sfxPlayer = AudioPlayer();
 

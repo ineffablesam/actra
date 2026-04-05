@@ -3,10 +3,10 @@ from __future__ import annotations
 import time
 from typing import Any
 
-import httpx
 import structlog
 
 from src.config import Settings
+from src.constants import SUPPORTED_PROVIDERS
 from src.utils.auth0_client import Auth0HttpClient
 from src.utils.redis_client import RedisStore
 from src.utils.service_log import err_ctx
@@ -49,8 +49,16 @@ class TokenVaultService:
     def _cache_key(self, user_id: str, provider: str) -> str:
         return f"token:{user_id}:{provider}"
 
+    def _connection_for_provider(self, provider: str) -> str:
+        """Auth0 social connection name used in federated token exchange."""
+        if provider in ("google_gmail", "google_calendar"):
+            return self._settings.auth0_google_connection_name
+        if provider == "slack":
+            return self._settings.auth0_slack_connection_name
+        raise ValueError(f"Unknown Token Vault provider: {provider}")
+
     async def clear_cached_access_tokens(self, user_id: str) -> None:
-        for provider in ("google_gmail", "google_calendar"):
+        for provider in SUPPORTED_PROVIDERS:
             await self._redis.delete(self._cache_key(user_id, provider))
 
     async def get_access_token(
@@ -65,7 +73,7 @@ class TokenVaultService:
             cached = await self._redis.get_json(ck)
             if cached and cached.get("access_token") and cached.get("exp", 0) > time.time() + 30:
                 logger.info(
-                    "google_access_token_cache_hit",
+                    "federated_access_token_cache_hit",
                     user_id=user_id,
                     provider=provider,
                 )
@@ -81,13 +89,14 @@ class TokenVaultService:
                 exc_info=True,
             )
 
+        connection = self._connection_for_provider(provider)
         logger.info(
             "token_exchange_attempt",
             service=_SERVICE,
-            operation="exchange_auth0_access_for_google",
+            operation="exchange_auth0_access_for_federated",
             user_id=user_id,
             provider=provider,
-            connection=self._settings.auth0_google_connection_name,
+            connection=connection,
         )
 
         body = {
@@ -95,7 +104,7 @@ class TokenVaultService:
             "subject_token": auth0_access_token,
             "subject_token_type": _SUBJECT_ACCESS_TOKEN,
             "requested_token_type": _REQUESTED_TOKEN_TYPE_FEDERATED,
-            "connection": self._settings.auth0_google_connection_name,
+            "connection": connection,
             "client_id": self._settings.auth0_token_exchange_client_id,
             "client_secret": self._settings.auth0_token_exchange_client_secret,
         }
@@ -114,7 +123,7 @@ class TokenVaultService:
             logger.warning(
                 "token_exchange_failed",
                 service=_SERVICE,
-                operation="exchange_auth0_access_for_google",
+                operation="exchange_auth0_access_for_federated",
                 user_id=user_id,
                 provider=provider,
                 status=resp.status_code,
@@ -123,23 +132,19 @@ class TokenVaultService:
             combined = (err_hint or "").lower()
             client_message: str | None = None
             ws_error_code = "TOKEN_VAULT_ERROR"
+            cn = self._connection_for_provider(provider)
             if "token vault is not enabled" in combined:
-                cn = self._settings.auth0_google_connection_name
                 client_message = (
                     f'Token Vault is not enabled for Auth0 connection "{cn}". '
-                    "In Auth0 Dashboard: Authentication → Social → Google → enable Connected Accounts "
-                    "for Token Vault (see Auth0 docs: Connected Accounts for Token Vault). "
-                    "Then sign out and sign in again."
+                    "In Auth0 Dashboard: Authentication → Social → [your connection] → enable "
+                    "Connected Accounts for Token Vault. Then sign out and sign in again."
                 )
                 ws_error_code = "TOKEN_VAULT_NOT_CONFIGURED"
             elif "federated_connection_refresh_token_not_found" in combined:
-                cn = self._settings.auth0_google_connection_name
                 client_message = (
-                    f'Auth0 has no Google refresh token in Token Vault for connection "{cn}". '
-                    "That usually means you signed in before Connected Accounts stored federated tokens, "
-                    "or the link was login-only. Sign out of the app, sign in again with Google, "
-                    "and complete any Google connection / consent so Auth0 can store tokens. "
-                    "You may need the Connected Accounts flow (My Account API) per Auth0 Token Vault docs."
+                    f'Auth0 has no federated refresh token in Token Vault for connection "{cn}". '
+                    "Sign out, sign in again, and complete the Connected Accounts link (My Account API) "
+                    "so Auth0 can store tokens for that provider."
                 )
                 ws_error_code = "FEDERATED_TOKEN_NOT_IN_VAULT"
             raise TokenVaultExchangeError(
@@ -156,7 +161,7 @@ class TokenVaultService:
         logger.info(
             "token_exchanged",
             service=_SERVICE,
-            operation="exchange_auth0_access_for_google",
+            operation="exchange_auth0_access_for_federated",
             provider=provider,
             expires_at=int(exp),
         )

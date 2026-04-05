@@ -8,10 +8,12 @@ from typing import Any
 
 import asyncpg
 import structlog
+import uvicorn
 import websockets
 from websockets import ServerConnection
 from websockets.exceptions import ConnectionClosedError
 
+from src.api.app import create_memory_app
 from src.config import get_settings
 from src.core.connection_manager import ConnectionManager
 from src.core.session_manager import SessionManager
@@ -19,6 +21,7 @@ from src.db.postgres import close_pool, create_pool, init_schema
 from src.handlers.action_handler import ActionHandler
 from src.handlers.connection_handler import ConnectionHandler
 from src.handlers.transcript_handler import TranscriptHandler
+from src.memory.service import MemoryService
 from src.models.events import (
     ActionEditedEvent,
     ErrorEvent,
@@ -32,6 +35,7 @@ from src.services.calendar_service import CalendarService
 from src.services.cartesia_service import CartesiaService
 from src.services.gemini_service import GeminiService
 from src.services.gmail_service import GmailService
+from src.services.slack_service import SlackService
 from src.services.token_vault_service import TokenVaultService
 from src.utils.redis_client import RedisStore
 from src.utils.service_log import err_ctx
@@ -60,6 +64,7 @@ class App:
         self.settings = get_settings()
         self.pg_pool = pg_pool
         self.redis = RedisStore(self.settings)
+        self.memory = MemoryService(self.settings, self.redis, pg_pool)
         self.connections = ConnectionManager()
         self.sessions = SessionManager(self.redis)
         self.users_repo = UsersRepository(pg_pool) if pg_pool is not None else None
@@ -69,6 +74,7 @@ class App:
         self.cartesia = CartesiaService(self.settings)
         self.gmail = GmailService()
         self.calendar = CalendarService()
+        self.slack = SlackService()
         self.transcript_handler = TranscriptHandler(
             connections=self.connections,
             sessions=self.sessions,
@@ -77,6 +83,9 @@ class App:
             cartesia=self.cartesia,
             gmail=self.gmail,
             calendar=self.calendar,
+            slack=self.slack,
+            settings=self.settings,
+            memory=self.memory,
         )
         self.connection_handler = ConnectionHandler(
             sessions=self.sessions,
@@ -290,13 +299,37 @@ async def run() -> None:
 
     app = App(pg_pool=pool)
     await app.redis.connect()
+    await app.memory.warmup()
     host = app.settings.ws_host
     port = app.settings.ws_port
-    try:
+
+    http_app = create_memory_app(app.memory)
+    uv_cfg = uvicorn.Config(
+        http_app,
+        host=settings.http_host,
+        port=settings.http_port,
+        log_level="info",
+    )
+    uv_server = uvicorn.Server(uv_cfg)
+
+    async def _ws_forever() -> None:
         async with websockets.serve(app.ws_handler, host, port):
             structlog.get_logger(__name__).info("ws_listening", host=host, port=port)
             await asyncio.Future()
+
+    structlog.get_logger(__name__).info(
+        "http_starting",
+        host=settings.http_host,
+        port=settings.http_port,
+    )
+
+    try:
+        await asyncio.gather(
+            _ws_forever(),
+            uv_server.serve(),
+        )
     finally:
+        await app.redis.close()
         await close_pool(pool)
 
 
