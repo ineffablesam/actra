@@ -7,6 +7,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:gradient_borders/box_borders/gradient_box_border.dart';
 import 'package:icons_plus/icons_plus.dart';
 import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 
@@ -14,10 +15,10 @@ import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 const String kAuth0LogoAsset = 'assets/images/auth0.svg';
 
 /// iOS system grouped background (light).
-const Color _kSheetGroupedBg = Color(0xFFF2F2F7);
-const Color _kCardSurface = Color(0xFFFFFFFF);
-const Color _kLabelSecondary = Color(0x993C3C43);
-const Color _kSeparator = Color(0x3F3C3C43);
+const Color _kSheetGroupedBg = Color(0xFFF080815);
+// const Color _kCardSurface = Color(0xFF1C1C1C);
+const Color _kLabelSecondary = Color(0x9EFFFFFF);
+const Color _kSeparator = Color(0x24FFFFFF);
 
 class _ConnectCategory {
   const _ConnectCategory({
@@ -125,7 +126,10 @@ class _ConnectionSheetHostState extends State<ConnectionSheetHost> {
       if (!mounted) return;
       final chat = Get.find<ChatController>();
       _worker?.dispose();
-      _worker = ever<int>(chat.openConnectionSheetTick, (_) => _openSheetIfNeeded(chat));
+      _worker = ever<int>(
+        chat.openConnectionSheetTick,
+        (_) => _openSheetIfNeeded(chat),
+      );
       _openSheetIfNeeded(chat);
     });
   }
@@ -151,7 +155,7 @@ void showConnectedAccountsSheet(
       context: context,
       useRootNavigator: true,
       barrierDismissible: true,
-      modalBarrierColor: Colors.black26,
+      modalBarrierColor: Colors.black.withOpacity(0.6),
       enableDrag: true,
       showDragHandle: true,
       modalTypeBuilder: (_) => const WoltBottomSheetType(),
@@ -174,8 +178,10 @@ class _ProviderVisual {
   });
 
   final String label;
+
   /// Path from [icons_plus] [Brands] (SVG via [Brand]).
   final String brandAsset;
+
   /// Accent for connect button / focus (brand logos stay full-color).
   final Color color;
 }
@@ -243,14 +249,18 @@ SliverWoltModalSheetPage _gridPage({
     topBarTitle: Text(
       'Connections',
       style: GoogleFonts.instrumentSans(
-        fontSize: 17.sp,
+        fontSize: 15.sp,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.41,
-        color: Colors.black,
+        color: Colors.white,
       ),
     ),
     trailingNavBarWidget: IconButton(
-      icon: Icon(Icons.close_rounded, size: 22.sp, color: const Color(0xFF007AFF)),
+      icon: Icon(
+        Icons.close_rounded,
+        size: 22.sp,
+        color: const Color(0xFFEBD2FF),
+      ),
       onPressed: () => Navigator.of(modalSheetContext).pop(),
     ),
     child: SingleChildScrollView(
@@ -262,10 +272,10 @@ SliverWoltModalSheetPage _gridPage({
           Text(
             'Connect accounts',
             style: GoogleFonts.instrumentSans(
-              fontSize: 28.sp,
+              fontSize: 18.sp,
               fontWeight: FontWeight.w700,
               letterSpacing: 0.35,
-              color: Colors.black,
+              color: Colors.white,
               height: 1.1,
             ),
           ),
@@ -273,7 +283,7 @@ SliverWoltModalSheetPage _gridPage({
           Text(
             'Choose an app to link. Tokens are stored securely in Auth0 Token Vault.',
             style: GoogleFonts.instrumentSans(
-              fontSize: 14.sp,
+              fontSize: 12.sp,
               fontWeight: FontWeight.w400,
               color: _kLabelSecondary,
               height: 1.4,
@@ -308,31 +318,46 @@ class _ConnectReasonBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: const Color(0xFF007AFF).withValues(alpha: 0.09),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFF007AFF).withValues(alpha: 0.18),
+        color: Colors.white.withOpacity(0.1),
+        image: DecorationImage(
+          fit: BoxFit.cover,
+          opacity: 0.2,
+          image: AssetImage("assets/images/chat_bubble_bg.png"),
+        ),
+        borderRadius: BorderRadius.circular(8.r),
+        border: GradientBoxBorder(
+          gradient: LinearGradient(
+            begin: AlignmentGeometry.topLeft,
+            end: AlignmentGeometry.bottomRight,
+            colors: [
+              Color(0xFFEDD9FF).withOpacity(0.6),
+              Colors.white10,
+              Color(0xFFC887FF).withOpacity(0.6),
+            ],
+          ),
+          width: 0.7,
         ),
       ),
       child: Padding(
-        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+        padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 4.h),
         child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Icon(
               Icons.info_outline_rounded,
               size: 20.sp,
-              color: const Color(0xFF007AFF),
+              color: const Color(0xFFF3E5FF),
             ),
             SizedBox(width: 10.w),
             Expanded(
               child: Text(
                 text,
                 style: GoogleFonts.instrumentSans(
-                  fontSize: 13.sp,
+                  fontSize: 10.sp,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xFF1C1C1E),
-                  height: 1.35,
+                  color: const Color(0xFFF3E5FF),
+                  // height: 1.35,
                 ),
               ),
             ),
@@ -375,9 +400,9 @@ class _ConnectCategorySection extends StatelessWidget {
               Text(
                 category.subtitle,
                 style: GoogleFonts.instrumentSans(
-                  fontSize: 12.sp,
+                  fontSize: 10.sp,
                   fontWeight: FontWeight.w400,
-                  color: _kLabelSecondary,
+                  color: _kLabelSecondary.withOpacity(0.3),
                 ),
               ),
             ],
@@ -385,15 +410,37 @@ class _ConnectCategorySection extends StatelessWidget {
         ),
         DecoratedBox(
           decoration: BoxDecoration(
-            color: _kCardSurface,
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
-                blurRadius: 8,
-                offset: const Offset(0, 2),
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFF0C0D18), // 0%
+                Color(0xFF10101E), // 69%
+                Color(0xFF1A1B24), // 100%
+              ],
+              stops: [0.0, 0.69, 1.0],
+            ),
+            border: GradientBoxBorder(
+              gradient: LinearGradient(
+                begin: AlignmentGeometry.topLeft,
+                end: AlignmentGeometry.bottomRight,
+                colors: [
+                  Color(0xFFEDD9FF).withOpacity(0.6),
+                  Colors.white10,
+                  Color(0xFFC887FF).withOpacity(0.6),
+                ],
               ),
-            ],
+              width: 0.7,
+            ),
+            // color: _kCardSurface,
+            borderRadius: BorderRadius.circular(12),
+            // boxShadow: [
+            //   BoxShadow(
+            //     color: Colors.black.withValues(alpha: 0.04),
+            //     blurRadius: 8,
+            //     offset: const Offset(0, 2),
+            //   ),
+            // ],
           ),
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
@@ -432,7 +479,7 @@ class _ConnectProviderRow extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Material(
-          color: _kCardSurface,
+          color: Colors.transparent,
           child: InkWell(
             onTap: () {
               final sheet = WoltModalSheet.of(modalSheetContext);
@@ -450,8 +497,20 @@ class _ConnectProviderRow extends StatelessWidget {
                 children: [
                   DecoratedBox(
                     decoration: BoxDecoration(
-                      color: const Color(0xFFF2F2F7),
+                      color: const Color(0xFF252525).withOpacity(0.4),
                       borderRadius: BorderRadius.circular(10),
+                      border: const GradientBoxBorder(
+                        gradient: LinearGradient(
+                          begin: AlignmentGeometry.topLeft,
+                          end: AlignmentGeometry.bottomRight,
+                          colors: [
+                            Color(0xFFEDD9FF),
+                            Colors.white10,
+                            Color(0xFFC887FF),
+                          ],
+                        ),
+                        width: 0.7,
+                      ),
                     ),
                     child: Padding(
                       padding: EdgeInsets.all(8.w),
@@ -466,10 +525,10 @@ class _ConnectProviderRow extends StatelessWidget {
                         Text(
                           v.label,
                           style: GoogleFonts.instrumentSans(
-                            fontSize: 16.sp,
+                            fontSize: 12.sp,
                             fontWeight: FontWeight.w600,
                             letterSpacing: -0.32,
-                            color: Colors.black,
+                            color: Colors.white,
                           ),
                         ),
                         SizedBox(height: 2.h),
@@ -495,12 +554,7 @@ class _ConnectProviderRow extends StatelessWidget {
           ),
         ),
         if (showDivider)
-          Divider(
-            height: 1,
-            thickness: 0.5,
-            color: _kSeparator,
-            indent: 72.w,
-          ),
+          Divider(height: 1, thickness: 0.5, color: _kSeparator, indent: 72.w),
       ],
     );
   }
@@ -520,7 +574,11 @@ SliverWoltModalSheetPage _detailPage({
     hasTopBarLayer: true,
     isTopBarLayerAlwaysVisible: true,
     leadingNavBarWidget: IconButton(
-      icon: Icon(Icons.arrow_back_ios_new_rounded, size: 18.sp, color: const Color(0xFF007AFF)),
+      icon: Icon(
+        Icons.arrow_back_ios_new_rounded,
+        size: 18.sp,
+        color: const Color(0xFFEBD2FF),
+      ),
       onPressed: () {
         final sheet = WoltModalSheet.of(modalSheetContext);
         sheet.popPage();
@@ -529,14 +587,18 @@ SliverWoltModalSheetPage _detailPage({
     topBarTitle: Text(
       v.label,
       style: GoogleFonts.instrumentSans(
-        fontSize: 17.sp,
+        fontSize: 15.sp,
         fontWeight: FontWeight.w600,
         letterSpacing: -0.41,
-        color: Colors.black,
+        color: Colors.white,
       ),
     ),
     trailingNavBarWidget: IconButton(
-      icon: Icon(Icons.close_rounded, size: 22.sp, color: const Color(0xFF007AFF)),
+      icon: Icon(
+        Icons.close_rounded,
+        size: 22.sp,
+        color: const Color(0xFFEBD2FF),
+      ),
       onPressed: () => Navigator.of(modalSheetContext).pop(),
     ),
     stickyActionBar: DecoratedBox(
@@ -545,11 +607,8 @@ SliverWoltModalSheetPage _detailPage({
         border: Border(top: BorderSide(color: Color(0x1F000000))),
       ),
       child: Padding(
-        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 20.h),
-        child: _ConnectBar(
-          provider: provider,
-          visual: v,
-        ),
+        padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 7.h),
+        child: _ConnectBar(provider: provider, visual: v),
       ),
     ),
     child: SingleChildScrollView(
@@ -561,19 +620,33 @@ SliverWoltModalSheetPage _detailPage({
           Center(
             child: DecoratedBox(
               decoration: BoxDecoration(
-                color: _kCardSurface,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.06),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFF0C0D18), // 0%
+                    Color(0xFF10101E), // 69%
+                    Color(0xFF1A1B24), // 100%
+                  ],
+                  stops: [0.0, 0.69, 1.0],
+                ),
+                border: const GradientBoxBorder(
+                  gradient: LinearGradient(
+                    begin: AlignmentGeometry.topLeft,
+                    end: AlignmentGeometry.bottomRight,
+                    colors: [
+                      Color(0xFFEDD9FF),
+                      Colors.white10,
+                      Color(0xFFC887FF),
+                    ],
                   ),
-                ],
+                  width: 0.7,
+                ),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: Padding(
                 padding: EdgeInsets.all(20.w),
-                child: _providerBrandIcon(v.brandAsset, 48.w),
+                child: _providerBrandIcon(v.brandAsset, 30.w),
               ),
             ),
           ),
@@ -582,7 +655,7 @@ SliverWoltModalSheetPage _detailPage({
             _providerRowSubtitle(provider),
             textAlign: TextAlign.center,
             style: GoogleFonts.instrumentSans(
-              fontSize: 14.sp,
+              fontSize: 12.sp,
               fontWeight: FontWeight.w400,
               color: _kLabelSecondary,
             ),
@@ -602,15 +675,36 @@ SliverWoltModalSheetPage _detailPage({
           ),
           DecoratedBox(
             decoration: BoxDecoration(
-              color: _kCardSurface,
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFF0C0D18), // 0%
+                  Color(0xFF10101E), // 69%
+                  Color(0xFF1A1B24), // 100%
+                ],
+                stops: [0.0, 0.69, 1.0],
+              ),
+              border: const GradientBoxBorder(
+                gradient: LinearGradient(
+                  begin: AlignmentGeometry.topLeft,
+                  end: AlignmentGeometry.bottomRight,
+                  colors: [
+                    Color(0xFFEDD9FF),
+                    Colors.white10,
+                    Color(0xFFC887FF),
+                  ],
                 ),
-              ],
+                width: 0.7,
+              ),
+              borderRadius: BorderRadius.circular(12),
+              // boxShadow: [
+              //   BoxShadow(
+              //     color: Colors.black.withValues(alpha: 0.04),
+              //     blurRadius: 8,
+              //     offset: const Offset(0, 2),
+              //   ),
+              // ],
             ),
             child: Padding(
               padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 14.h),
@@ -618,11 +712,7 @@ SliverWoltModalSheetPage _detailPage({
                 children: [
                   for (var i = 0; i < bullets.length; i++) ...[
                     if (i > 0)
-                      Divider(
-                        height: 1,
-                        thickness: 0.5,
-                        color: _kSeparator,
-                      ),
+                      Divider(height: 1, thickness: 0.5, color: _kSeparator),
                     Padding(
                       padding: EdgeInsets.symmetric(vertical: 10.h),
                       child: Row(
@@ -634,7 +724,7 @@ SliverWoltModalSheetPage _detailPage({
                               width: 6,
                               height: 6,
                               decoration: const BoxDecoration(
-                                color: Color(0xFF007AFF),
+                                color: Color(0x5CEBD2FF),
                                 shape: BoxShape.circle,
                               ),
                             ),
@@ -650,7 +740,7 @@ SliverWoltModalSheetPage _detailPage({
                                     fontSize: 15.sp,
                                     fontWeight: FontWeight.w600,
                                     letterSpacing: -0.24,
-                                    color: Colors.black,
+                                    color: Colors.white,
                                   ),
                                 ),
                                 SizedBox(height: 4.h),
@@ -691,15 +781,14 @@ class _Auth0TokenVaultFooter extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(
-          height: 1,
-          color: Colors.black.withValues(alpha: 0.07),
-        ),
+        SizedBox(height: 14.h),
+        Container(height: 1, color: Colors.white.withValues(alpha: 0.1)),
         SizedBox(height: 14.h),
         Center(
           child: SvgPicture.asset(
             kAuth0LogoAsset,
             height: 22.h,
+            color: Colors.white,
             fit: BoxFit.contain,
           ),
         ),
@@ -710,7 +799,7 @@ class _Auth0TokenVaultFooter extends StatelessWidget {
           style: GoogleFonts.instrumentSans(
             fontSize: 11.sp,
             fontWeight: FontWeight.w600,
-            color: Colors.black54,
+            color: Colors.white,
             letterSpacing: 0.2,
           ),
         ),
@@ -721,7 +810,7 @@ class _Auth0TokenVaultFooter extends StatelessWidget {
           style: GoogleFonts.instrumentSans(
             fontSize: 10.sp,
             fontWeight: FontWeight.w400,
-            color: Colors.black38,
+            color: Colors.white.withOpacity(0.6),
             height: 1.4,
           ),
         ),
@@ -731,10 +820,7 @@ class _Auth0TokenVaultFooter extends StatelessWidget {
 }
 
 class _ConnectBar extends StatefulWidget {
-  const _ConnectBar({
-    required this.provider,
-    required this.visual,
-  });
+  const _ConnectBar({required this.provider, required this.visual});
 
   final String provider;
   final _ProviderVisual visual;
@@ -767,7 +853,7 @@ class _ConnectBarState extends State<_ConnectBar> {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
-      height: 50.h,
+      height: 40.h,
       child: FilledButton(
         onPressed: _loading ? null : _onConnect,
         style: FilledButton.styleFrom(
@@ -788,12 +874,19 @@ class _ConnectBarState extends State<_ConnectBar> {
                   color: Colors.white,
                 ),
               )
-            : Text(
-                'Connect ${widget.visual.label}',
-                style: GoogleFonts.instrumentSans(
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w600,
-                ),
+            : Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Connect ${widget.visual.label}',
+                    style: GoogleFonts.instrumentSans(
+                      fontSize: 15.sp,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  10.horizontalSpace,
+                  Icon(EvaIcons.link_2_outline),
+                ],
               ),
       ),
     );

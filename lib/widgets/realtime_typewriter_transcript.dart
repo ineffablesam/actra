@@ -13,12 +13,20 @@ class RealtimeTypewriterTranscript extends StatefulWidget {
     required this.style,
     required this.placeholderStyle,
     this.wordDelay = const Duration(milliseconds: 45),
+    this.wrapAlignment = WrapAlignment.center,
+    this.lineTextAlign = TextAlign.center,
+    /// When false, an empty [text] renders nothing (e.g. chat bubbles before first chunk).
+    /// When true (default), empty shows "Listening..." styling like the mic transcript.
+    this.showListeningWhenEmpty = true,
   });
 
   final String text;
   final TextStyle style;
   final TextStyle placeholderStyle;
   final Duration wordDelay;
+  final WrapAlignment wrapAlignment;
+  final TextAlign lineTextAlign;
+  final bool showListeningWhenEmpty;
 
   @override
   State<RealtimeTypewriterTranscript> createState() =>
@@ -127,10 +135,14 @@ class _RealtimeTypewriterTranscriptState
 
   @override
   Widget build(BuildContext context) {
+    if (widget.text.isEmpty && !widget.showListeningWhenEmpty) {
+      return const SizedBox.shrink();
+    }
+
     if (_isPlaceholder(widget.text)) {
       return Text(
         widget.text.isEmpty ? 'Listening...' : widget.text,
-        textAlign: TextAlign.center,
+        textAlign: widget.lineTextAlign,
         style: widget.placeholderStyle,
       );
     }
@@ -140,11 +152,12 @@ class _RealtimeTypewriterTranscriptState
         key: ValueKey(widget.text),
         text: widget.text,
         style: widget.style,
+        textAlign: widget.lineTextAlign,
       );
     }
 
     return Wrap(
-      alignment: WrapAlignment.center,
+      alignment: widget.wrapAlignment,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: List.generate(_words.length, (i) {
         final show = i < _shown.length && _shown[i];
@@ -193,10 +206,12 @@ class _BlurRevealLine extends StatelessWidget {
     super.key,
     required this.text,
     required this.style,
+    required this.textAlign,
   });
 
   final String text;
   final TextStyle style;
+  final TextAlign textAlign;
 
   @override
   Widget build(BuildContext context) {
@@ -204,7 +219,7 @@ class _BlurRevealLine extends StatelessWidget {
       duration: const Duration(milliseconds: 420),
       child: Text(
         text,
-        textAlign: TextAlign.center,
+        textAlign: textAlign,
         style: style,
       ),
     );

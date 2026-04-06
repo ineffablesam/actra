@@ -45,7 +45,6 @@ float map(vec3 p) {
   float ct1     = cos(iTime * 0.15);
   float ct2     = cos(iTime * 0.15 + 1.6);
 
-  // Use configurable fractal intensity
   float fold    = 0.7 + iAmplitude * uFractalIntensity;
   float offset  = 0.7 - iAmplitude * (uFractalIntensity * 0.8);
 
@@ -66,16 +65,21 @@ vec3 raymarch(vec3 ro, vec3 rd, vec2 tminmax) {
   vec3  col = vec3(0.0);
   float c   = 0.0;
 
+  // #B454FF → vec3(0.706, 0.329, 1.000)
+  // #EBD2FF → vec3(0.922, 0.824, 1.000)
+
   for (int i = 0; i < 36; i++) {
     t += dt * exp(-2.0 * c);
     if (t > tminmax.y) break;
 
     c = map(ro + t * rd);
 
-    // Purple marble palette with configurable color boost
-    vec3 deep = mix(vec3(0.42, 0.18, 0.62), vec3(0.58, 0.12, 0.78), iAmplitude * uColorBoost);
-    vec3 mid  = mix(vec3(0.52, 0.22, 0.74), vec3(0.72, 0.18, 0.92), iAmplitude * uColorBoost);
-    vec3 lav  = mix(vec3(0.58, 0.32, 0.68), vec3(0.68, 0.28, 0.84), iAmplitude * uColorBoost);
+    // deep: dark shade of #B454FF
+    vec3 deep = mix(vec3(0.18, 0.06, 0.30), vec3(0.35, 0.13, 0.55), iAmplitude * uColorBoost);
+    // mid: pure #B454FF range
+    vec3 mid  = mix(vec3(0.55, 0.22, 0.82), vec3(0.71, 0.33, 1.00), iAmplitude * uColorBoost);
+    // lav: light #EBD2FF range
+    vec3 lav  = mix(vec3(0.78, 0.62, 0.95), vec3(0.92, 0.82, 1.00), iAmplitude * uColorBoost);
 
     float d = clamp(c, 0.0, 0.8);
     vec3  mc = mix(deep, mid, d);
@@ -84,7 +88,8 @@ vec3 raymarch(vec3 ro, vec3 rd, vec2 tminmax) {
     col = 0.99 * col + 0.13 * mc * vec3(c * c, c * c, c);
   }
 
-  col += vec3(0.32, 0.16, 0.42) * 0.22;
+  // Ambient: very dark #B454FF shadow
+  col += vec3(0.14, 0.05, 0.25) * 0.22;
   return col;
 }
 
@@ -96,7 +101,6 @@ void main() {
   vec2 p  = -1.0 + 2.0 * uv;
   p.x *= iResolution.x / iResolution.y;
 
-  // Configurable zoom
   float zoom = 1.0 - iAmplitude * uZoomAmount;
   vec3  ro   = zoom * vec3(4.0);
   ro.xz *= rot(0.25 * iTime);
@@ -107,7 +111,6 @@ void main() {
   vec3 vv = cross(uu, ww);
   vec3 rd = normalize(p.x * uu + p.y * vv + 4.0 * ww) * 0.975;
 
-  // Configurable radius growth
   float radius = uBaseRadius + iAmplitude * uRadiusGrowth;
   vec2  tmm    = iSphere(ro, rd, vec4(0.0, 0.0, 0.0, radius));
 
@@ -117,17 +120,12 @@ void main() {
   if (tmm.x >= 0.0) {
     col = raymarch(ro, rd, tmm);
 
-    // Configurable edge glow
+    // Edge glow: #B454FF → #EBD2FF on amplitude
     vec3  hit      = ro + tmm.x * rd;
     float edge     = length(hit) / radius;
     float glow     = pow(edge, 3.0) * mix(0.55, uGlowStrength, iAmplitude);
-    vec3  glowCol  = mix(vec3(0.65, 0.35, 0.88), vec3(0.88, 0.28, 1.0), iAmplitude);
+    vec3  glowCol  = mix(vec3(0.71, 0.33, 1.00), vec3(0.92, 0.82, 1.00), iAmplitude);
     col += glowCol * glow;
-
-    // Fresnel shimmer
-    vec3  nor = reflect(rd, hit * 0.5);
-    float fre = pow(0.5 + clamp(dot(nor, rd), 0.0, 1.0), 3.0) * 1.3;
-    col += vec3(0.18, 0.10, 0.24) * fre;
 
     alpha = 1.0;
   }

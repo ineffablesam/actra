@@ -1,46 +1,48 @@
 import 'dart:ui' as ui;
 
+import 'package:actra/modules/shader/shader_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get_state_manager/src/simple/get_state.dart';
 
 class ShaderWidget extends StatelessWidget {
   const ShaderWidget({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // return GetBuilder<ShaderController>(
-    //   builder: (controller) {
-    //     if (controller.shader == null) return const SizedBox.expand();
-    //
-    //     return RepaintBoundary(
-    //       child: SizedBox.expand(
-    //         child: ListenableBuilder(
-    //           listenable: Listenable.merge([
-    //             controller.time,
-    //             controller.amplitude,
-    //           ]),
-    //           builder: (_, __) => CustomPaint(
-    //             painter: ShaderPainter(
-    //               shader: controller.shader!,
-    //               time: controller.time.value,
-    //               amplitude: controller.amplitude.value,
-    //               config: ShaderConfig(
-    //                 baseRadius: controller.baseRadius,
-    //                 radiusGrowth: controller.radiusGrowth,
-    //                 fractalIntensity: controller.fractalIntensity,
-    //                 colorBoost: controller.colorBoost,
-    //                 glowStrength: controller.glowStrength,
-    //                 zoomAmount: controller.zoomAmount,
-    //               ),
-    //             ),
-    //             isComplex: true,
-    //             willChange: true,
-    //           ),
-    //         ),
-    //       ),
-    //     );
-    //   },
-    // );
-    return SizedBox();
+    return GetBuilder<ShaderController>(
+      builder: (controller) {
+        if (controller.shader == null) return const SizedBox.expand();
+
+        return RepaintBoundary(
+          child: SizedBox.expand(
+            child: ListenableBuilder(
+              listenable: Listenable.merge([
+                controller.time,
+                controller.amplitude,
+              ]),
+              builder: (_, __) => CustomPaint(
+                painter: ShaderPainter(
+                  shader: controller.shader!,
+                  time: controller.time.value,
+                  amplitude: controller.amplitude.value,
+                  config: ShaderConfig(
+                    baseRadius: controller.baseRadius,
+                    radiusGrowth: controller.radiusGrowth,
+                    fractalIntensity: controller.fractalIntensity,
+                    colorBoost: controller.colorBoost,
+                    glowStrength: controller.glowStrength,
+                    zoomAmount: controller.zoomAmount,
+                  ),
+                ),
+                isComplex: true,
+                willChange: true,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+    // return SizedBox();
   }
 }
 

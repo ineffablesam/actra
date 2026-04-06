@@ -29,20 +29,28 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
-        margin: EdgeInsets.only(right: 48.w, bottom: 10.h),
-        padding: EdgeInsets.symmetric(horizontal: 20.w, vertical: 14.h),
-        decoration: const BoxDecoration(
-          color: Color(0xFF1E1E2E),
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(4),
+        margin: EdgeInsets.only(right: 40.w, bottom: 10.h),
+        padding: EdgeInsets.symmetric(horizontal: 18.w, vertical: 14.h),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.78),
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(6),
             topRight: Radius.circular(18),
             bottomLeft: Radius.circular(18),
             bottomRight: Radius.circular(18),
           ),
+          border: Border.all(color: const Color(0x28000000)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
         ),
         child: AnimatedBuilder(
           animation: _c,
-          builder: (_, __) {
+          builder: (context, _) {
             const base = 0.35;
             const amp = 0.65;
             return Row(
@@ -58,7 +66,7 @@ class _ThinkingBubbleState extends State<ThinkingBubble>
                       width: 7,
                       height: 7,
                       decoration: const BoxDecoration(
-                        color: Colors.white70,
+                        color: Color(0xFF8E8E93),
                         shape: BoxShape.circle,
                       ),
                     ),

@@ -9,7 +9,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:iconsax_flutter/iconsax_flutter.dart';
+import 'package:gradient_borders/box_borders/gradient_box_border.dart';
 import 'package:text_gradiate/text_gradiate.dart';
 
 class SplashView extends GetView<SplashController> {
@@ -22,7 +22,7 @@ class SplashView extends GetView<SplashController> {
       body: Container(
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage('assets/images/bg.png'),
+            image: AssetImage('assets/images/chat_mesh_bg_2.png'),
             fit: BoxFit.cover,
           ),
         ),
@@ -60,7 +60,11 @@ class SplashView extends GetView<SplashController> {
               right: 10,
               child: SafeArea(
                 top: true,
-                child: SvgPicture.asset('assets/images/auth0.svg', width: 90.w),
+                child: SvgPicture.asset(
+                  'assets/images/auth0.svg',
+                  width: 90.w,
+                  color: Colors.white,
+                ),
               ),
             ),
 
@@ -138,14 +142,14 @@ class _BottomReadyState extends State<_BottomReady>
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                colors: const [Colors.black, Color(0xFF8E6BAC)],
+                colors: const [Color(0xFFEBD2FF), Color(0xFF8E6BAC)],
                 gradientType: GradientType.linear,
                 begin: Alignment.centerLeft,
                 end: Alignment.centerRight,
                 tileMode: TileMode.clamp,
               ),
 
-              SizedBox(height: 8.h),
+              SizedBox(height: 4.h),
 
               // Sub-text — exactly as original
               SizedBox(
@@ -155,8 +159,8 @@ class _BottomReadyState extends State<_BottomReady>
                   textAlign: TextAlign.center,
                   style: GoogleFonts.instrumentSans(
                     fontSize: 12.sp,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.black.withOpacity(0.57),
+                    fontWeight: FontWeight.w400,
+                    color: Color(0x6BFFFFFF),
                   ),
                 ),
               ),
@@ -193,7 +197,7 @@ class _BottomPrepare extends GetView<SplashController> {
   @override
   Widget build(BuildContext context) {
     return Align(
-      alignment: Alignment.bottomCenter,
+      alignment: Alignment.bottomLeft,
       child: Padding(
         padding: EdgeInsets.fromLTRB(30.w, 0, 30.w, 0.06.sh),
         child: Column(
@@ -210,29 +214,33 @@ class _BottomPrepare extends GetView<SplashController> {
                   switchOutCurve: Curves.easeOut,
                   transitionBuilder: (child, anim) =>
                       FadeTransition(opacity: anim, child: child),
-                  child: Column(
+                  child: Row(
                     key: ValueKey(controller.factIndex.value),
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Text(
-                        'DID YOU KNOW',
-                        style: GoogleFonts.instrumentSans(
-                          fontSize: 9.sp,
-                          color: Colors.black.withOpacity(0.32),
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.4,
-                        ),
-                      ),
-                      SizedBox(height: 5.h),
-                      Text(
-                        controller.facts[controller.factIndex.value],
-                        style: GoogleFonts.instrumentSans(
-                          fontSize: 12.sp,
-                          color: Colors.black.withOpacity(0.60),
-                          fontWeight: FontWeight.w500,
-                          height: 1.5,
-                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.start,
+                        children: [
+                          Text(
+                            'DID YOU KNOW?',
+                            style: GoogleFonts.ibmPlexMono(
+                              fontSize: 9.sp,
+                              color: Colors.white.withOpacity(0.8),
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1.4,
+                            ),
+                          ),
+                          SizedBox(height: 5.h),
+                          Text(
+                            controller.facts[controller.factIndex.value],
+                            style: GoogleFonts.ibmPlexMono(
+                              fontSize: 10.sp,
+                              color: Colors.white.withOpacity(0.6),
+                              fontWeight: FontWeight.w500,
+                              height: 1.5,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -252,7 +260,7 @@ class _BottomPrepare extends GetView<SplashController> {
                       controller.statusText.value,
                       style: GoogleFonts.instrumentSans(
                         fontSize: 11.sp,
-                        color: Colors.black.withOpacity(0.42),
+                        color: Color(0xFFEBD2FF),
                         fontWeight: FontWeight.w500,
                       ),
                       overflow: TextOverflow.ellipsis,
@@ -300,8 +308,8 @@ class _BottomPrepare extends GetView<SplashController> {
                       '${controller.currentFile.value} / ${controller.totalFiles.value}',
                       style: GoogleFonts.instrumentSans(
                         fontSize: 11.sp,
-                        color: const Color(0xFF8E6BAC),
-                        fontWeight: FontWeight.w700,
+                        color: Color(0xFFEBD2FF),
+                        fontWeight: FontWeight.w400,
                       ),
                     ),
                 ],
@@ -345,13 +353,6 @@ class _BottomPrepare extends GetView<SplashController> {
                         end: Alignment.centerRight,
                       ),
                       borderRadius: BorderRadius.circular(100),
-                      boxShadow: [
-                        BoxShadow(
-                          color: const Color(0xFF8E6BAC).withOpacity(0.4),
-                          blurRadius: 8,
-                          spreadRadius: 1,
-                        ),
-                      ],
                     ),
                   );
                 }),
@@ -385,7 +386,7 @@ class _BottomPrepare extends GetView<SplashController> {
                     style: GoogleFonts.instrumentSans(
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF632EE4),
+                      color: Color(0x73EBD2FF),
                       letterSpacing: 0.3,
                     ),
                   ),
@@ -419,16 +420,21 @@ class MagicButton extends StatelessWidget {
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 10.w),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(0),
-            border: Border.all(color: const Color(0xFF632EE4), width: 3),
-            image: const DecorationImage(
-              image: AssetImage('assets/images/button_bg.png'),
-              fit: BoxFit.cover,
+            color: Colors.white.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(20.r),
+            border: const GradientBoxBorder(
+              gradient: LinearGradient(
+                begin: AlignmentGeometry.topLeft,
+                end: AlignmentGeometry.bottomRight,
+                transform: GradientRotation(1),
+                colors: [Color(0xFFFFFFFF), Colors.white10, Color(0xFFFFFFFF)],
+              ),
+              width: 0.7,
             ),
           ),
           child: Center(
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   text,
@@ -438,7 +444,12 @@ class MagicButton extends StatelessWidget {
                     color: Colors.white.withOpacity(0.95),
                   ),
                 ),
-                const Icon(Iconsax.arrow_right_1_copy, color: Colors.white),
+                10.horizontalSpace,
+                Icon(
+                  Icons.arrow_forward_ios_rounded,
+                  color: Colors.white,
+                  size: 12.sp,
+                ),
               ],
             ),
           ),
