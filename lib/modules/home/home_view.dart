@@ -45,62 +45,64 @@ class HomeView extends GetView<HomeController> {
               fit: BoxFit.cover,
             ),
           ),
-          child: Column(
+          child: Stack(
+            alignment: AlignmentGeometry.bottomCenter,
             children: [
-              Expanded(
-                child: ConnectionSheetHost(
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      CustomScrollView(
-                        physics: const BouncingScrollPhysics(
-                          parent: AlwaysScrollableScrollPhysics(),
-                        ),
-                        slivers: [
-                          _HomeSliverAppBar(
-                            onLogoutTap: () {
-                              final busy =
-                                  Get.find<Auth0Service>().isBusy.value;
-                              if (busy) return;
-                              showLogoutConfirmSheet(context);
-                            },
-                          ),
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 16.h),
-                            sliver: const ChatMessagesSliver(),
-                          ),
-                        ],
+              ConnectionSheetHost(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    CustomScrollView(
+                      physics: const BouncingScrollPhysics(
+                        parent: AlwaysScrollableScrollPhysics(),
                       ),
-                      Obx(() {
-                        final audioCtrl = AudioController.to;
-                        if (!audioCtrl.isListening.value) {
-                          return const SizedBox.shrink();
-                        }
-                        final top =
-                            MediaQuery.paddingOf(context).top +
-                            _HomeSliverAppBar.toolbarHeight +
-                            8.h;
-                        return Positioned(
-                          top: top,
-                          left: 16.w,
-                          right: 16.w,
-                          child: _TranscriptionDisplay(
-                            text: audioCtrl.displayText,
-                          ),
-                        );
-                      }),
-                    ],
-                  ),
+                      slivers: [
+                        _HomeSliverAppBar(
+                          onLogoutTap: () {
+                            final busy = Get.find<Auth0Service>().isBusy.value;
+                            if (busy) return;
+                            showLogoutConfirmSheet(context);
+                          },
+                        ),
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 16.h),
+                          sliver: const ChatMessagesSliver(),
+                        ),
+                      ],
+                    ),
+                    Obx(() {
+                      final audioCtrl = AudioController.to;
+                      if (!audioCtrl.isListening.value) {
+                        return const SizedBox.shrink();
+                      }
+                      final top =
+                          MediaQuery.paddingOf(context).top +
+                          _HomeSliverAppBar.toolbarHeight +
+                          8.h;
+                      return Positioned(
+                        top: top,
+                        left: 16.w,
+                        right: 16.w,
+                        child: _TranscriptionDisplay(
+                          text: audioCtrl.displayText,
+                        ),
+                      );
+                    }),
+                  ],
                 ),
               ),
-              _BottomControlsBar(
-                onAccountsTap: () {
-                  showConnectedAccountsSheet(
-                    context,
-                    providers: kDefaultConnectableProviderIds,
-                    reason: 'Connect an account to use Actra with your tools.',
-                  );
-                },
+              Positioned(
+                bottom: 0,
+                child: _BottomControlsBar(
+                  onAccountsTap: () {
+                    showConnectedAccountsSheet(
+                      context,
+                      providers: kDefaultConnectableProviderIds,
+                      reason:
+                          'Connect an account to use Actra with your tools.',
+                    );
+                  },
+                ),
               ),
             ],
           ),
@@ -181,42 +183,53 @@ class _HomeSliverAppBar extends StatelessWidget {
             ],
           ),
           Spacer(),
-          Container(
-            padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
-            decoration: BoxDecoration(
-              image: const DecorationImage(
-                image: AssetImage('assets/images/chat_bubble_bg.png'),
-                fit: BoxFit.cover,
-                opacity: 0.9,
-                repeat: ImageRepeat.repeat,
+          CustomTap(
+            onLongTap: () {
+              final busy = Get.find<Auth0Service>().isBusy.value;
+              if (busy) return;
+              showLogoutConfirmSheet(context);
+            },
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+              decoration: BoxDecoration(
+                image: const DecorationImage(
+                  image: AssetImage('assets/images/chat_bubble_bg.png'),
+                  fit: BoxFit.cover,
+                  opacity: 0.9,
+                  repeat: ImageRepeat.repeat,
+                ),
+                borderRadius: BorderRadius.circular(50.r),
+                border: Border.all(color: Colors.white.withOpacity(0.3)),
               ),
-              borderRadius: BorderRadius.circular(50.r),
-              border: Border.all(color: Colors.white.withOpacity(0.3)),
-            ),
-            child: IntrinsicHeight(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    'Supercharged by',
-                    style: GoogleFonts.instrumentSans(
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w600,
+              child: IntrinsicHeight(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      'Supercharged by',
+                      style: GoogleFonts.instrumentSans(
+                        fontSize: 10.sp,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white,
+                      ),
+                    ),
+                    VerticalDivider(
+                      indent: 3,
+                      endIndent: 2,
                       color: Colors.white,
                     ),
-                  ),
-                  VerticalDivider(indent: 3, endIndent: 2, color: Colors.white),
-                  Padding(
-                    padding: EdgeInsets.only(top: 1.h),
-                    child: SvgPicture.asset(
-                      'assets/images/auth0.svg',
-                      width: 65,
-                      color: Colors.white,
+                    Padding(
+                      padding: EdgeInsets.only(top: 1.h),
+                      child: SvgPicture.asset(
+                        'assets/images/auth0.svg',
+                        width: 65,
+                        color: Colors.white,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -314,119 +327,83 @@ class _BottomControlsBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Stack(
-      alignment: Alignment.bottomCenter,
-      children: [
-        // Positioned(
-        //   left: 0,
-        //   right: 0,
-        //   bottom: 0,
-        //   height: 0.24.sh,
-        //   child: IgnorePointer(
-        //     child: DecoratedBox(
-        //       decoration: BoxDecoration(
-        //         gradient: LinearGradient(
-        //           begin: Alignment.topCenter,
-        //           end: Alignment.bottomCenter,
-        //           colors: [
-        //             const Color(0x00F2F2F7),
-        //             const Color(0xB8F2F2F7),
-        //             const Color(0xE8F2F2F7),
-        //           ],
-        //           stops: const [0.0, 0.45, 1.0],
-        //         ),
-        //       ),
-        //     ),
-        //   ),
-        // ),
-        Padding(
-          padding: EdgeInsets.only(bottom: 0.05.sh),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceAround,
-            children: [
-              CustomTap(
-                onTap: onAccountsTap,
-                child: Center(
-                  child: LiquidGlassLayer(
-                    settings: const LiquidGlassSettings(
-                      thickness: 20,
-                      blur: 10,
-                      glassColor: Color(0x30121B49),
-                    ),
-                    child: LiquidStretch(
-                      stretch: 0.5,
-                      interactionScale: 1.05,
-                      child: LiquidGlass(
-                        shape: LiquidRoundedSuperellipse(borderRadius: 50),
-                        child: SizedBox(
-                          height: 60,
-                          width: 60,
-                          child: Center(
-                            child: Icon(
-                              EvaIcons.link_2_outline,
-                              color: Color(0xFFFFFFFF),
-                              size: 24.sp,
-                            ),
-                          ),
+    return Padding(
+      padding: EdgeInsets.only(bottom: 20.h),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          CustomTap(
+            onTap: onAccountsTap,
+            child: Center(
+              child: LiquidGlassLayer(
+                settings: const LiquidGlassSettings(
+                  thickness: 20,
+                  blur: 10,
+                  glassColor: Color(0x30121B49),
+                ),
+                child: LiquidStretch(
+                  stretch: 0.5,
+                  interactionScale: 1.05,
+                  child: LiquidGlass(
+                    shape: LiquidRoundedSuperellipse(borderRadius: 50),
+                    child: SizedBox(
+                      height: 60,
+                      width: 60,
+                      child: Center(
+                        child: Icon(
+                          EvaIcons.link_2_outline,
+                          color: Color(0xFFFFFFFF),
+                          size: 24.sp,
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-              // GlassIconButton(
-              //   size: 60,
-              //   icon: Icon(
-              //     Iconsax.shield_security,
-              //     color: const Color(0xFF1C1C1E),
-              //     size: 24.sp,
-              //   ),
-              //   onPressed: onAccountsTap,
-              // ),
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 28.w),
-                child: const MagicButton(),
-              ),
-              Center(
-                child: LiquidGlassLayer(
-                  settings: const LiquidGlassSettings(
-                    thickness: 20,
-                    blur: 10,
-                    glassColor: Color(0x30121B49),
-                  ),
-                  child: LiquidStretch(
-                    stretch: 0.5,
-                    interactionScale: 1.05,
-                    child: LiquidGlass(
-                      shape: LiquidRoundedSuperellipse(borderRadius: 50),
-                      child: SizedBox(
-                        height: 60,
-                        width: 60,
-                        child: Center(
-                          child: Icon(
-                            Iconsax.setting_2_bold,
-                            color: Color(0xFFFFFFFF),
-                            size: 24.sp,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              // GlassIconButton(
-              //   size: 60,
-              //   icon: Icon(
-              //     Iconsax.setting_2,
-              //     color: const Color(0xFF1C1C1E),
-              //     size: 24.sp,
-              //   ),
-              //   onPressed: () {},
-              // ),
-            ],
+            ),
           ),
-        ),
-      ],
+          Padding(
+            padding: EdgeInsets.symmetric(horizontal: 28.w),
+            child: const MagicButton(),
+          ),
+          Center(
+            child: LiquidGlassLayer(
+              settings: const LiquidGlassSettings(
+                thickness: 20,
+                blur: 10,
+                glassColor: Color(0x30121B49),
+              ),
+              child: LiquidStretch(
+                stretch: 0.5,
+                interactionScale: 1.05,
+                child: LiquidGlass(
+                  shape: LiquidRoundedSuperellipse(borderRadius: 50),
+                  child: SizedBox(
+                    height: 60,
+                    width: 60,
+                    child: Center(
+                      child: Icon(
+                        Iconsax.setting_2_bold,
+                        color: Color(0xFFFFFFFF),
+                        size: 24.sp,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // GlassIconButton(
+          //   size: 60,
+          //   icon: Icon(
+          //     Iconsax.setting_2,
+          //     color: const Color(0xFF1C1C1E),
+          //     size: 24.sp,
+          //   ),
+          //   onPressed: () {},
+          // ),
+        ],
+      ),
     );
   }
 }
@@ -864,12 +841,8 @@ class _MagicButtonState extends State<MagicButton>
 
             // ── Button body ────────────────────────────────────────────────
             AnimatedBuilder(
-              animation: Listenable.merge([_scaleCtrl, _ampCtrl]),
+              animation: _scaleCtrl,
               builder: (context, _) {
-                final amp = _ampCtrl.value;
-                final glowRadius = _isListening ? 12.0 + amp * 24.0 : 0.0;
-                final glowOpacity = _isListening ? 0.30 + amp * 0.50 : 0.0;
-
                 return Transform.scale(
                   scale: _iconScale.value,
                   child: Stack(
@@ -959,17 +932,13 @@ class _SpringSimulation extends Simulation {
     required double start,
     required double end,
     required double velocity,
-  }) : _start = start,
-       _end = end,
-       _sim = SpringSimulation(
+  }) : _sim = SpringSimulation(
          SpringDescription(mass: mass, stiffness: stiffness, damping: damping),
          start,
          end,
          velocity,
        );
 
-  final double _start;
-  final double _end;
   final SpringSimulation _sim;
 
   @override

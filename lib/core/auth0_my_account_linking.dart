@@ -12,12 +12,16 @@ import 'package:get/get.dart';
 /// **Tenant setup (required):**
 /// 1. Dashboard → **Applications → APIs** → activate **My Account API** (banner). If this
 ///    step is skipped, `/authorize` returns `access_denied` with *Service not found*
-///    for `https://<your-tenant>/me/`.
+///    for `https://<your-tenant>/me/`, or `GET /me/v1/connected-accounts` returns **404** (A0E-404-0001).
 /// 2. **Auth0 My Account API** → **Application Access** → your Native app → **User access**
 ///    (not *Client* / M2M — that row is disabled on purpose; My Account API is user-delegated only)
 ///    → **Authorized** → enable Connected Accounts scopes (`create/read/delete:me:connected_accounts`).
-/// 3. For refresh-token exchange without a second browser step: enable **MRRT** on the Native
-///    app and add audience `https://<domain>/me/` + scopes to refresh token policies.
+/// 3. If `/oauth/token` returns **`invalid_target`** when exchanging the **login** refresh token for
+///    audience `https://<domain>/me/`, add a **Multi-Resource Refresh Token (MRRT)** policy on
+///    this application so that audience + scopes are allowed. See Auth0 docs: *Configure and
+///    implement Multi-Resource Refresh Token*. Your login flow typically uses another audience
+///    (e.g. `AUTH0_AUDIENCE`); without MRRT, Auth0 will not issue a `/me/` access token from that
+///    refresh token. **PKCE** (below) can still work as a fallback browser step.
 /// 4. Native app **Allowed Callback URLs**: `{AUTH0_SCHEME}://my-account-callback` (PKCE fallback).
 class Auth0MyAccountLinking extends GetxService {
   Auth0MyAccountLinking() : _dio = Dio();
@@ -25,6 +29,8 @@ class Auth0MyAccountLinking extends GetxService {
   final Dio _dio;
   final FlutterAppAuth _appAuth = FlutterAppAuth();
   final isObtainingMyAccountToken = false.obs;
+
+  static bool _warnedInvalidTarget = false;
 
   /// Audience for all My Account API calls and tokens.
   /// See: https://auth0.com/docs/manage-users/my-account-api#audience
@@ -101,8 +107,26 @@ class Auth0MyAccountLinking extends GetxService {
         '[MyAccount] refresh exchange failed status=${e.response?.statusCode} '
         'data=${e.response?.data}',
       );
+      _maybeSnackbarInvalidTarget(e);
       return null;
     }
+  }
+
+  void _maybeSnackbarInvalidTarget(DioException e) {
+    if (e.response?.statusCode != 400) return;
+    final data = e.response?.data;
+    if (data is! Map) return;
+    if (data['error']?.toString() != 'invalid_target') return;
+    if (_warnedInvalidTarget) return;
+    _warnedInvalidTarget = true;
+    Get.snackbar(
+      'Auth0: refresh token can’t target My Account API',
+      'Add a Multi-Resource Refresh Token (MRRT) policy for audience '
+      '$_audience with Connected Accounts scopes on this Native app, '
+      'or complete the in-app browser step when linking. '
+      'See Auth0 docs: Multi-Resource Refresh Token.',
+      duration: const Duration(seconds: 18),
+    );
   }
 
   /// PKCE: same Native [client_id] as login; [audience] + Connected Accounts scopes.

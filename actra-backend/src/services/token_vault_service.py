@@ -61,6 +61,11 @@ class TokenVaultService:
         for provider in SUPPORTED_PROVIDERS:
             await self._redis.delete(self._cache_key(user_id, provider))
 
+    async def clear_cached_access_token(self, user_id: str, provider: str) -> None:
+        if provider not in SUPPORTED_PROVIDERS:
+            return
+        await self._redis.delete(self._cache_key(user_id, provider))
+
     async def get_access_token(
         self,
         user_id: str,

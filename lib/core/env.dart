@@ -16,6 +16,15 @@ abstract final class Env {
     defaultValue: 'http://192.168.1.157:8000',
   );
 
+  /// When true, sends `X-User-Id` with the memory/linked-accounts HTTP API (use with backend `REQUIRE_AUTH0_JWT=false`).
+  static const String backendTrustUserIdHeader = String.fromEnvironment(
+    'BACKEND_TRUST_USER_ID_HEADER',
+    defaultValue: 'false',
+  );
+
+  static bool get backendTrustUserIdHeaderBool =>
+      backendTrustUserIdHeader.toLowerCase() == 'true';
+
   static const String auth0Domain = String.fromEnvironment(
     'AUTH0_DOMAIN',
     defaultValue: 'dev-0uu1-z5v.us.auth0.com',

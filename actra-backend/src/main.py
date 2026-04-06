@@ -13,7 +13,7 @@ import websockets
 from websockets import ServerConnection
 from websockets.exceptions import ConnectionClosedError
 
-from src.api.app import create_memory_app
+from src.api.app import create_http_app
 from src.config import get_settings
 from src.core.connection_manager import ConnectionManager
 from src.core.session_manager import SessionManager
@@ -303,7 +303,13 @@ async def run() -> None:
     host = app.settings.ws_host
     port = app.settings.ws_port
 
-    http_app = create_memory_app(app.memory)
+    http_app = create_http_app(
+        app.memory,
+        app.sessions,
+        app.auth0_jwt,
+        app.token_vault,
+        app.settings,
+    )
     uv_cfg = uvicorn.Config(
         http_app,
         host=settings.http_host,

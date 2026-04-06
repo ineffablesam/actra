@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:actra/chat/controllers/chat_controller.dart';
+import 'package:actra/core/linked_accounts_controller.dart';
 import 'package:actra/core/connected_accounts_permissions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -150,6 +151,9 @@ void showConnectedAccountsSheet(
   String? reason,
 }) {
   if (providers.isEmpty) return;
+  if (Get.isRegistered<LinkedAccountsController>()) {
+    unawaited(Get.find<LinkedAccountsController>().reloadFromBackend());
+  }
   unawaited(
     WoltModalSheet.show<void>(
       context: context,
@@ -307,6 +311,65 @@ SliverWoltModalSheetPage _gridPage({
       ),
     ),
   );
+}
+
+const Color _kConnectedAccent = Color(0xFF5FD68A);
+
+Future<void> _confirmDisconnectProvider(
+  BuildContext context,
+  String providerId,
+) async {
+  final v = _providerVisual(providerId);
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (ctx) {
+      return AlertDialog(
+        backgroundColor: const Color(0xFF1C1C24),
+        surfaceTintColor: Colors.transparent,
+        title: Text(
+          'Disconnect ${v.label}?',
+          style: GoogleFonts.instrumentSans(
+            fontSize: 17.sp,
+            fontWeight: FontWeight.w600,
+            color: Colors.white,
+          ),
+        ),
+        content: Text(
+          'You can link this account again from here anytime.',
+          style: GoogleFonts.instrumentSans(
+            fontSize: 14.sp,
+            fontWeight: FontWeight.w400,
+            color: _kLabelSecondary,
+            height: 1.35,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(
+              'Cancel',
+              style: GoogleFonts.instrumentSans(
+                fontWeight: FontWeight.w600,
+                color: _kLabelSecondary,
+              ),
+            ),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(
+              'Disconnect',
+              style: GoogleFonts.instrumentSans(
+                fontWeight: FontWeight.w600,
+                color: const Color(0xFFFF6B6B),
+              ),
+            ),
+          ),
+        ],
+      );
+    },
+  );
+  if (ok != true || !Get.isRegistered<LinkedAccountsController>()) return;
+  await Get.find<LinkedAccountsController>().disconnect(providerId);
 }
 
 class _ConnectReasonBanner extends StatelessWidget {
@@ -472,8 +535,18 @@ class _ConnectProviderRow extends StatelessWidget {
   final BuildContext modalSheetContext;
   final bool showDivider;
 
-  @override
-  Widget build(BuildContext context) {
+  void _openDetail() {
+    final sheet = WoltModalSheet.of(modalSheetContext);
+    _trimModalStackToFirstPage(sheet);
+    sheet.pushPage(
+      _detailPage(
+        modalSheetContext: modalSheetContext,
+        provider: providerId,
+      ),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, {required bool isLinked}) {
     final v = _providerVisual(providerId);
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -481,74 +554,115 @@ class _ConnectProviderRow extends StatelessWidget {
         Material(
           color: Colors.transparent,
           child: InkWell(
-            onTap: () {
-              final sheet = WoltModalSheet.of(modalSheetContext);
-              _trimModalStackToFirstPage(sheet);
-              sheet.pushPage(
-                _detailPage(
-                  modalSheetContext: modalSheetContext,
-                  provider: providerId,
-                ),
-              );
-            },
-            child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
-              child: Row(
-                children: [
-                  DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF252525).withOpacity(0.4),
-                      borderRadius: BorderRadius.circular(10),
-                      border: const GradientBoxBorder(
-                        gradient: LinearGradient(
-                          begin: AlignmentGeometry.topLeft,
-                          end: AlignmentGeometry.bottomRight,
-                          colors: [
-                            Color(0xFFEDD9FF),
-                            Colors.white10,
-                            Color(0xFFC887FF),
-                          ],
+            onTap: isLinked ? null : _openDetail,
+            onLongPress: isLinked
+                ? () => unawaited(_confirmDisconnectProvider(context, providerId))
+                : null,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: isLinked ? Colors.white.withValues(alpha: 0.03) : null,
+              ),
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
+                child: Row(
+                  children: [
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF252525).withOpacity(0.4),
+                        borderRadius: BorderRadius.circular(10),
+                        border: const GradientBoxBorder(
+                          gradient: LinearGradient(
+                            begin: AlignmentGeometry.topLeft,
+                            end: AlignmentGeometry.bottomRight,
+                            colors: [
+                              Color(0xFFEDD9FF),
+                              Colors.white10,
+                              Color(0xFFC887FF),
+                            ],
+                          ),
+                          width: 0.7,
                         ),
-                        width: 0.7,
+                      ),
+                      child: Padding(
+                        padding: EdgeInsets.all(8.w),
+                        child: _providerBrandIcon(v.brandAsset, 28.sp),
                       ),
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.all(8.w),
-                      child: _providerBrandIcon(v.brandAsset, 28.sp),
-                    ),
-                  ),
-                  SizedBox(width: 14.w),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          v.label,
-                          style: GoogleFonts.instrumentSans(
-                            fontSize: 12.sp,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: -0.32,
-                            color: Colors.white,
+                    SizedBox(width: 14.w),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            v.label,
+                            style: GoogleFonts.instrumentSans(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -0.32,
+                              color: Colors.white,
+                            ),
                           ),
-                        ),
-                        SizedBox(height: 2.h),
-                        Text(
-                          _providerRowSubtitle(providerId),
-                          style: GoogleFonts.instrumentSans(
-                            fontSize: 13.sp,
-                            fontWeight: FontWeight.w400,
-                            color: _kLabelSecondary,
+                          SizedBox(height: 2.h),
+                          Text(
+                            _providerRowSubtitle(providerId),
+                            style: GoogleFonts.instrumentSans(
+                              fontSize: 13.sp,
+                              fontWeight: FontWeight.w400,
+                              color: _kLabelSecondary,
+                            ),
                           ),
-                        ),
-                      ],
+                          if (isLinked) ...[
+                            SizedBox(height: 6.h),
+                            Row(
+                              children: [
+                                Container(
+                                  width: 5,
+                                  height: 5,
+                                  decoration: const BoxDecoration(
+                                    color: _kConnectedAccent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                SizedBox(width: 6.w),
+                                Text(
+                                  'Connected',
+                                  style: GoogleFonts.instrumentSans(
+                                    fontSize: 10.sp,
+                                    fontWeight: FontWeight.w600,
+                                    letterSpacing: 0.2,
+                                    color: _kConnectedAccent.withValues(alpha: 0.92),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
-                  ),
-                  Icon(
-                    Icons.chevron_right_rounded,
-                    color: const Color(0xFFC7C7CC),
-                    size: 22.sp,
-                  ),
-                ],
+                    if (isLinked)
+                      Tooltip(
+                        message: 'Disconnect',
+                        child: IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: BoxConstraints.tight(Size(36.w, 36.h)),
+                          icon: Icon(
+                            Icons.link_off_rounded,
+                            color: const Color(0xFFEBD2FF).withValues(alpha: 0.75),
+                            size: 20.sp,
+                          ),
+                          onPressed: () =>
+                              unawaited(_confirmDisconnectProvider(context, providerId)),
+                        ),
+                      ),
+                    if (!isLinked)
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: const Color(0xFFC7C7CC),
+                        size: 22.sp,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -557,6 +671,18 @@ class _ConnectProviderRow extends StatelessWidget {
           Divider(height: 1, thickness: 0.5, color: _kSeparator, indent: 72.w),
       ],
     );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (Get.isRegistered<LinkedAccountsController>()) {
+      return Obx(() {
+        final linked = Get.find<LinkedAccountsController>().linkedProviders;
+        final isLinked = linked.contains(providerId);
+        return _buildRow(context, isLinked: isLinked);
+      });
+    }
+    return _buildRow(context, isLinked: false);
   }
 }
 

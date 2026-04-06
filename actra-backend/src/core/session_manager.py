@@ -11,7 +11,6 @@ logger = structlog.get_logger(__name__)
 
 SESSION_STATE_TTL = 3600
 PENDING_TASK_TTL = 1800
-USER_PROVIDERS_TTL = 60
 
 
 class SessionManager:
@@ -59,10 +58,11 @@ class SessionManager:
         await self._redis.delete(self._pending_key(session_id))
 
     async def set_user_connected_providers(self, user_id: str, providers: list[str]) -> None:
+        # No TTL: linked integrations must survive across sessions (was 60s and appeared "not persisting").
         await self._redis.set_json(
             self._user_providers_key(user_id),
             {"providers": providers},
-            ex=USER_PROVIDERS_TTL,
+            ex=None,
         )
 
     async def get_user_connected_providers(self, user_id: str) -> list[str] | None:
@@ -154,6 +154,14 @@ class SessionManager:
         existing = await self.get_user_connected_providers(user_id) or []
         merged = list(dict.fromkeys([*existing, provider]))
         await self.set_user_connected_providers(user_id, merged)
+
+    async def remove_connected_provider(self, user_id: str, provider: str) -> None:
+        existing = await self.get_user_connected_providers(user_id) or []
+        merged = [p for p in existing if p != provider]
+        if not merged:
+            await self.invalidate_user_providers(user_id)
+        else:
+            await self.set_user_connected_providers(user_id, merged)
 
     async def clear_session(self, session_id: str) -> None:
         """Remove Redis state for a WebSocket session (logout or disconnect)."""

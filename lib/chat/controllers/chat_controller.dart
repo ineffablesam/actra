@@ -8,6 +8,7 @@ import 'package:actra/chat/services/websocket_service.dart';
 import 'package:actra/core/auth_session_service.dart';
 import 'package:actra/core/chat_provider_labels.dart';
 import 'package:actra/core/connected_accounts_service.dart';
+import 'package:actra/core/linked_accounts_controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:uuid/uuid.dart';
@@ -236,6 +237,9 @@ class ChatController extends GetxController {
     debugPrint('[Chat] connectProvider success, sending account_connected');
     _ws?.sendAccountConnected(provider);
     pendingProviders.remove(provider);
+    if (Get.isRegistered<LinkedAccountsController>()) {
+      unawaited(Get.find<LinkedAccountsController>().reloadFromBackend());
+    }
     return true;
   }
 

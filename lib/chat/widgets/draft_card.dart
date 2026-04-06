@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:gradient_borders/box_borders/gradient_box_border.dart';
 
 class DraftCard extends StatefulWidget {
   const DraftCard({super.key, required this.message});
@@ -45,9 +46,25 @@ class _DraftCardState extends State<DraftCard> {
       margin: EdgeInsets.only(bottom: 12.h),
       padding: EdgeInsets.all(14.w),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E1E2E),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white24),
+        color: Colors.white.withOpacity(0.1),
+        image: DecorationImage(
+          fit: BoxFit.cover,
+          image: AssetImage("assets/images/chat_bubble_bg.png"),
+        ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(6),
+          topRight: Radius.circular(18),
+          bottomLeft: Radius.circular(18),
+          bottomRight: Radius.circular(18),
+        ),
+        border: const GradientBoxBorder(
+          gradient: LinearGradient(
+            begin: AlignmentGeometry.topLeft,
+            end: AlignmentGeometry.bottomRight,
+            colors: [Color(0xFFEDD9FF), Colors.white10, Color(0xFFC887FF)],
+          ),
+          width: 0.7,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,14 +72,20 @@ class _DraftCardState extends State<DraftCard> {
           TextField(
             controller: _to,
             readOnly: !_editing,
-            style: GoogleFonts.instrumentSans(color: Colors.white, fontSize: 13.sp),
+            style: GoogleFonts.instrumentSans(
+              color: Colors.white,
+              fontSize: 13.sp,
+            ),
             decoration: _dec('To'),
           ),
           SizedBox(height: 8.h),
           TextField(
             controller: _subj,
             readOnly: !_editing,
-            style: GoogleFonts.instrumentSans(color: Colors.white, fontSize: 13.sp),
+            style: GoogleFonts.instrumentSans(
+              color: Colors.white,
+              fontSize: 13.sp,
+            ),
             decoration: _dec('Subject'),
           ),
           SizedBox(height: 8.h),
@@ -70,18 +93,26 @@ class _DraftCardState extends State<DraftCard> {
             controller: _body,
             readOnly: !_editing,
             maxLines: 4,
-            style: GoogleFonts.instrumentSans(color: Colors.white70, fontSize: 13.sp),
+            style: GoogleFonts.instrumentSans(
+              color: Colors.white70,
+              fontSize: 13.sp,
+            ),
             decoration: _dec('Body'),
           ),
           SizedBox(height: 12.h),
           Row(
             children: [
               TextButton(
-                onPressed: _sent ? null : () => setState(() => _editing = !_editing),
-                child: const Text('Edit'),
+                onPressed: _sent
+                    ? null
+                    : () => setState(() => _editing = !_editing),
+                child: const Text(
+                  'Edit',
+                  style: TextStyle(color: Color(0xFFEBD2FF)),
+                ),
               ),
-              ElevatedButton.icon(
-                onPressed: _sent || actionId.isEmpty
+              InkWell(
+                onTap: (_sent || actionId.isEmpty)
                     ? null
                     : () {
                         final chat = Get.find<ChatController>();
@@ -95,10 +126,49 @@ class _DraftCardState extends State<DraftCard> {
                         );
                         setState(() => _sent = true);
                       },
-                icon: const Icon(Icons.send_rounded, size: 18),
-                label: Text(_sent ? 'Sent!' : 'Send'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF7C3AED),
+                borderRadius: BorderRadius.circular(20.r),
+                child: Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 16.w,
+                    vertical: 8.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (_sent || actionId.isEmpty)
+                        ? Colors.white.withOpacity(0.05)
+                        : Colors.white.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20.r),
+                    border: const GradientBoxBorder(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        transform: GradientRotation(1),
+                        colors: [
+                          Color(0xFFFFFFFF),
+                          Colors.white10,
+                          Color(0xFFFFFFFF),
+                        ],
+                      ),
+                      width: 0.7,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.send_rounded,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      SizedBox(width: 8.w),
+                      Text(
+                        _sent ? 'Sent!' : 'Send',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
               if (_sent) ...[
@@ -116,8 +186,12 @@ class _DraftCardState extends State<DraftCard> {
     return InputDecoration(
       labelText: label,
       labelStyle: GoogleFonts.instrumentSans(color: Colors.white54),
-      enabledBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
-      focusedBorder: const UnderlineInputBorder(borderSide: BorderSide(color: Color(0xFF7C3AED))),
+      enabledBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: Colors.white24),
+      ),
+      focusedBorder: const UnderlineInputBorder(
+        borderSide: BorderSide(color: Color(0xFF7C3AED)),
+      ),
     );
   }
 }
