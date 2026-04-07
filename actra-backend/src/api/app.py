@@ -26,6 +26,7 @@ def create_http_app(
     auth0_jwt: Auth0JwtService,
     token_vault: TokenVaultService,
     settings: Settings,
+    ws_handler=None,
 ) -> FastAPI:
     """HTTP surface: health, memory debugging, and user linked integrations."""
 
@@ -113,6 +114,30 @@ def create_http_app(
             raise HTTPException(status_code=400, detail="user_id is required")
         rows = await memory.retrieve_memories(user_id, q, top_k=top_k)
         return {"user_id": user_id, "query": q, "results": rows}
+
+    if ws_handler is not None:
+        from fastapi import WebSocket as FastAPIWebSocket
+        from starlette.websockets import WebSocketDisconnect
+
+        @app.websocket("/ws")
+        async def ws_endpoint(fastapi_ws: FastAPIWebSocket):
+            await fastapi_ws.accept()
+
+            class WSAdapter:
+                def __init__(self, ws):
+                    self._ws = ws
+                    self.remote_address = ws.client
+
+                def __aiter__(self):
+                    return self
+
+                async def __anext__(self):
+                    try:
+                        return await self._ws.receive_text()
+                    except WebSocketDisconnect:
+                        raise StopAsyncIteration
+
+            await ws_handler(WSAdapter(fastapi_ws))
 
     return app
 

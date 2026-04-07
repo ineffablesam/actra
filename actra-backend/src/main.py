@@ -5,7 +5,7 @@ import json
 import logging
 import sys
 from typing import Any
-
+import os
 import asyncpg
 import structlog
 import uvicorn
@@ -301,55 +301,37 @@ async def run() -> None:
     await app.redis.connect()
     await app.memory.warmup()
 
+    is_production = os.getenv("ENVIRONMENT", "development") == "production"
+
     http_app = create_http_app(
         app.memory,
         app.sessions,
         app.auth0_jwt,
         app.token_vault,
         app.settings,
+        ws_handler=app.ws_handler if is_production else None,
     )
 
-    if settings.environment == "production":
-        # Railway: single port, WebSocket mounted at /ws
-        from fastapi import WebSocket as FastAPIWebSocket
-        from starlette.websockets import WebSocketDisconnect
+    uv_cfg = uvicorn.Config(
+        http_app,
+        host=settings.http_host,
+        port=settings.http_port,
+        log_level="info",
+    )
+    uv_server = uvicorn.Server(uv_cfg)
 
-        @http_app.websocket("/ws")
-        async def ws_endpoint(fastapi_ws: FastAPIWebSocket):
-            await fastapi_ws.accept()
-
-            class WSAdapter:
-                def __init__(self, ws):
-                    self._ws = ws
-                    self.remote_address = ws.client
-
-                def __aiter__(self):
-                    return self
-
-                async def __anext__(self):
-                    try:
-                        return await self._ws.receive_text()
-                    except WebSocketDisconnect:
-                        raise StopAsyncIteration
-
-            await app.ws_handler(WSAdapter(fastapi_ws))
-
-        uv_cfg = uvicorn.Config(http_app, host=settings.http_host, port=settings.http_port, log_level="info")
-        uv_server = uvicorn.Server(uv_cfg)
+    if is_production:
         try:
             await uv_server.serve()
         finally:
             await app.redis.close()
             await close_pool(pool)
     else:
-        # Local: original dual-port mode, nothing changes
         async def _ws_forever() -> None:
             async with websockets.serve(app.ws_handler, settings.ws_host, settings.ws_port):
                 log.info("ws_listening", host=settings.ws_host, port=settings.ws_port)
                 await asyncio.Future()
 
-        uv_cfg = uvicorn.Config(http_app, host=settings.http_host, port=settings.http_port, log_level="info")
-        uv_server = uvicorn.Server(uv_cfg)
         try:
             await asyncio.gather(_ws_forever(), uv_server.serve())
         finally:
