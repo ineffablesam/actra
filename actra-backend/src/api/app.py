@@ -65,7 +65,7 @@ def create_http_app(
         return {"status": "ok"}
 
     @app.get("/debug")
-    async def debug(settings: Settings = Depends(get_settings)) -> dict[str, str]:
+    async def debug() -> dict[str, str]:
         return {"environment": settings.environment}
 
     @app.get("/users/me/connected-accounts")
