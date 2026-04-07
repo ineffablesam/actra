@@ -64,6 +64,10 @@ def create_http_app(
     async def health() -> dict[str, str]:
         return {"status": "ok"}
 
+    @app.get("/debug")
+    async def debug(settings: Settings = Depends(get_settings)) -> dict[str, str]:
+        return {"environment": settings.environment}
+
     @app.get("/users/me/connected-accounts")
     async def get_connected_accounts(user_id: str = Depends(current_user_sub)) -> dict[str, Any]:
         providers = await sessions.get_user_connected_providers(user_id) or []
