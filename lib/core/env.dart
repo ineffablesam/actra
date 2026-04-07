@@ -5,7 +5,8 @@ abstract final class Env {
   /// `ws://192.168.1.157:8765` (emulator’s alias for your machine). Physical device: use your LAN IP.
   static const String wsUrl = String.fromEnvironment(
     'WS_URL',
-    defaultValue: 'ws://192.168.1.157:8765',
+    defaultValue:
+        'wss://acd5-2600-4041-44c5-7d00-6103-7f06-4155-91f6.ngrok-free.app',
   );
 
   /// HTTP base for the FastAPI memory API (`/health`, `/memory/search`). Docker Compose publishes **8000**.
@@ -13,7 +14,8 @@ abstract final class Env {
   /// Leave empty if you do not call the HTTP API from the app.
   static const String memoryApiBaseUrl = String.fromEnvironment(
     'MEMORY_API_BASE_URL',
-    defaultValue: 'http://192.168.1.157:8000',
+    defaultValue:
+        'https://f907-2600-4041-44c5-7d00-6103-7f06-4155-91f6.ngrok-free.app',
   );
 
   /// When true, sends `X-User-Id` with the memory/linked-accounts HTTP API (use with backend `REQUIRE_AUTH0_JWT=false`).

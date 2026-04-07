@@ -47,6 +47,13 @@ def user_facing_github_error(exc: BaseException) -> str:
             return "GitHub could not find that repository or path (check owner/name and visibility)."
         if status == 422:
             return "GitHub rejected the request (validation error). The branch or file may conflict; try again."
+        if status == 409:
+            if "does not match" in text:
+                return (
+                    "GitHub refused the file update (content changed on the branch). "
+                    "Try again with a new branch; delete the old actra-fix-* branch on the repo if it is stuck."
+                )
+            return "GitHub conflict (409). The branch or file may have changed; try again."
     return f"Could not open pull request: {exc}"
 
 
@@ -224,10 +231,11 @@ class GitHubService:
             "branch": head_branch,
         }
 
-        # If file exists on base, we need its SHA for update
+        # SHA must be from the **same branch** we commit to (head). Using base_branch breaks
+        # when head already exists (e.g. retry) or diverged — GitHub returns 409 "does not match".
         r_get = await self._client.get(
             put_path,
-            params={"ref": base_branch},
+            params={"ref": head_branch},
             headers=headers,
         )
         if r_get.status_code == 200:

@@ -1,6 +1,9 @@
 # Auth0 credentials
 .env.auth0.generated
 
+# ngrok helper (scripts/ngrok_dev.py)
+.ngrok.generated.yml
+
 # Virtual environments
 .venv/
 venv/
