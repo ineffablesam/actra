@@ -5,7 +5,7 @@ import json
 import logging
 import sys
 from typing import Any
-import os
+
 import asyncpg
 import structlog
 import uvicorn
@@ -301,7 +301,10 @@ async def run() -> None:
     await app.redis.connect()
     await app.memory.warmup()
 
-    is_production = os.getenv("ENVIRONMENT", "development") == "production"
+    # Use Settings (Pydantic), not raw os.getenv: .env / env vars are merged into Settings but are
+    # not always exported to os.environ, so getenv("ENVIRONMENT") can stay "development" while
+    # settings.environment is "production" — that would skip mounting /ws on FastAPI.
+    is_production = app.settings.environment.strip().lower() == "production"
 
     http_app = create_http_app(
         app.memory,
@@ -310,6 +313,13 @@ async def run() -> None:
         app.token_vault,
         app.settings,
         ws_handler=app.ws_handler if is_production else None,
+    )
+    log.info(
+        "http_app_created",
+        environment=app.settings.environment,
+        production_mode=is_production,
+        ws_on_fastapi=is_production,
+        ws_standalone_port=not is_production,
     )
 
     uv_cfg = uvicorn.Config(
