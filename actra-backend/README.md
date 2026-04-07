@@ -1,6 +1,6 @@
 # Actra backend
 
-Async **Python** service for the Actra assistant: **WebSocket** agent pipeline (Gemini intent + drafting, Cartesia TTS), **Auth0** JWT verification, **Token Vault** federated token exchange for **Gmail**, **Google Calendar**, and **Slack**, **Redis** session state, **PostgreSQL** users, **Chroma** + **sentence-transformers** long-term memory.
+Async **Python** service for the Actra assistant: **WebSocket** agent pipeline (Gemini intent + drafting, Cartesia TTS), **Auth0** JWT verification, **Token Vault** federated token exchange for **Gmail**, **Google Calendar**, **Slack**, and **GitHub**, **Redis** session state, **PostgreSQL** users, **Chroma** + **sentence-transformers** long-term memory.
 
 The **Flutter client** lives in the repository root (`../`); point it at this host’s WebSocket and HTTP ports (see `lib/core/env.dart`).
 
@@ -36,7 +36,7 @@ Copy **`.env.example`** → **`.env`** and fill values. Important variables:
 | `REQUIRE_AUTH0_JWT` | If `true`, `session_auth` must send a valid Auth0 **access token**; agent events must match JWT `sub` |
 | `AUTH0_DOMAIN`, `AUTH0_AUDIENCE` | Issuer/audience for `Auth0JwtService` (RS256 via JWKS) |
 | `AUTH0_TOKEN_EXCHANGE_CLIENT_ID` / `AUTH0_TOKEN_EXCHANGE_CLIENT_SECRET` | Confidential **Custom API** client used only for **Token Vault** `/oauth/token` exchange |
-| `AUTH0_GOOGLE_CONNECTION_NAME`, `AUTH0_SLACK_CONNECTION_NAME` | Auth0 **social connection names** (must match Dashboard slugs) |
+| `AUTH0_GOOGLE_CONNECTION_NAME`, `AUTH0_SLACK_CONNECTION_NAME`, `AUTH0_GITHUB_CONNECTION_NAME` | Auth0 **social connection names** (must match Dashboard slugs; GitHub often `github`) |
 | `GEMINI_*`, `CARTESIA_*` | Model and voice |
 | `MEMORY_*` | Chroma path, short-term limits, embedding model, retrieval `MEMORY_RETRIEVAL_TOP_K` (default **8** for the transcript retrieval path) |
 
@@ -58,6 +58,7 @@ On first run, **sentence-transformers** may download `MEMORY_EMBEDDING_MODEL` (s
 
 - **Google** (`AUTH0_GOOGLE_CONNECTION_NAME`, often `google-oauth2`): Token Vault + scopes for Gmail/Calendar as required by your Auth0 and Google connection settings.
 - **Slack** (`AUTH0_SLACK_CONNECTION_NAME`): connection name must match **Authentication → Social → Slack**; enable Token Vault / Connected Accounts per Auth0 docs.
+- **GitHub** (`AUTH0_GITHUB_CONNECTION_NAME`, often `github`): [Auth0 GitHub for AI](https://auth0.com/ai/docs/integrations/github) — enable **Connected Accounts for Token Vault** on the connection. The mobile app sends GitHub OAuth scopes `read:user` and `repo` to Auth0 connect (Auth0 rejects an empty `scopes` array). Align your **GitHub OAuth App** and Auth0 connection so those scopes are allowed.
 
 ### Runtime behavior
 
@@ -68,6 +69,10 @@ On first run, **sentence-transformers** may download `MEMORY_EMBEDDING_MODEL` (s
 
 - `Token Vault is not enabled for the provided connection` → Enable Connected Accounts / Token Vault on that **connection** in the Dashboard.
 - `federated_connection_refresh_token_not_found` → No vault entry for that user/connection; complete **Connected Accounts** in the app and/or sign out and sign in again after Dashboard changes.
+
+**GitHub PRs (403 *Resource not accessible by integration*)**
+
+- The token can read the API but **cannot** write to that repo’s contents. Common causes: **organization** repository — approve the OAuth app in GitHub org settings, or install the GitHub App with **Contents** write; **fine-grained** GitHub tokens with limited repo access; Auth0’s GitHub connection not granting write access to the target org. Reconnect GitHub in the app with **repo** scope and ensure the GitHub OAuth App is allowed for that organization.
 
 ---
 

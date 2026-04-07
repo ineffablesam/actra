@@ -23,6 +23,13 @@ abstract final class ConnectedAccountsPermissions {
         'team:read',
       ];
     }
+    if (provider == 'github') {
+      // Auth0 requires at least one scope (A0E-400-0003 if empty). Match your GitHub OAuth App.
+      return const [
+        'read:user',
+        'repo',
+      ];
+    }
     if (provider.contains('calendar')) {
       return const [
         'openid',
@@ -104,6 +111,19 @@ abstract final class ConnectedAccountsPermissions {
           scope: 'https://www.googleapis.com/auth/gmail.readonly',
           title: 'Read email',
           description: 'Read threads and metadata to draft replies or summarize mail.',
+        );
+      case 'read:user':
+        return const ProviderPermissionBullet(
+          scope: 'read:user',
+          title: 'Profile',
+          description: 'Identify your GitHub user for Token Vault and API calls.',
+        );
+      case 'repo':
+        return const ProviderPermissionBullet(
+          scope: 'repo',
+          title: 'Repositories',
+          description:
+              'Read and write repository contents, issues, and pull requests Actra needs for your requests.',
         );
       default:
         return ProviderPermissionBullet(

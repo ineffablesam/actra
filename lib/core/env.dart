@@ -72,4 +72,11 @@ abstract final class Env {
     'AUTH0_SLACK_CONNECTION_NAME',
     defaultValue: 'sign-in-with-slack',
   );
+
+  /// Must match Auth0 → Authentication → Social → [GitHub] connection name (often `github`).
+  /// Connected Accounts `connect` must send at least one GitHub OAuth scope (see app permissions).
+  static const String auth0GithubConnectionName = String.fromEnvironment(
+    'AUTH0_GITHUB_CONNECTION_NAME',
+    defaultValue: 'github',
+  );
 }

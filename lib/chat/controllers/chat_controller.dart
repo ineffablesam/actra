@@ -35,6 +35,7 @@ class ChatController extends GetxController {
   StreamSubscription<ErrorWsEvent>? _subErr;
 
   String? _streamingId;
+  String? _codeStreamingId;
 
   void _removeThinkingMessages() {
     messages.removeWhere((m) => m.type == MessageType.agentThinking);
@@ -87,6 +88,44 @@ class ChatController extends GetxController {
     });
 
     _subStream = ws.onAgentStream.listen((e) {
+      final seg = e.segment;
+      if (seg == 'code') {
+        isAgentBusy.value = true;
+        if (_codeStreamingId == null) {
+          _removeThinkingMessages();
+          _codeStreamingId = _uuid.v4();
+          messages.add(
+            ChatMessage(
+              id: _codeStreamingId!,
+              type: MessageType.agentStream,
+              text: '',
+              timestamp: DateTime.now(),
+              isStreaming: true,
+              isCodeStream: true,
+            ),
+          );
+        }
+        final cid = _codeStreamingId!;
+        final cidx = messages.indexWhere((m) => m.id == cid);
+        if (cidx >= 0) {
+          final m = messages[cidx];
+          m.text = (m.text ?? '') + e.chunk;
+          messages[cidx] = m;
+          messages.refresh();
+        }
+        if (e.done) {
+          final idx2 = messages.indexWhere((m) => m.id == cid);
+          if (idx2 >= 0) {
+            messages[idx2].isStreaming = false;
+            messages[idx2].type = MessageType.agentFinal;
+            messages.refresh();
+          }
+          _codeStreamingId = null;
+          isAgentBusy.value = false;
+        }
+        return;
+      }
+
       if (_streamingId == null) {
         _removeThinkingMessages();
         _streamingId = _uuid.v4();
@@ -123,20 +162,32 @@ class ChatController extends GetxController {
     _subDraft = ws.onDraftReady.listen((e) {
       _removeThinkingMessages();
       final p = e.payload;
-      messages.add(
-        ChatMessage(
-          id: _uuid.v4(),
-          type: MessageType.draftReady,
-          draft: DraftPayload(
-            to: p['to'] as String? ?? '',
-            subject: p['subject'] as String? ?? '',
-            body: p['body'] as String? ?? '',
-            cc: (p['cc'] as List<dynamic>? ?? []).cast<String>(),
+      if (e.type == 'github_pr') {
+        messages.add(
+          ChatMessage(
+            id: _uuid.v4(),
+            type: MessageType.draftReady,
+            githubPrDraft: GithubPrDraftPayload.fromJson(p),
+            actionId: e.actionId,
+            timestamp: DateTime.now(),
           ),
-          actionId: e.actionId,
-          timestamp: DateTime.now(),
-        ),
-      );
+        );
+      } else {
+        messages.add(
+          ChatMessage(
+            id: _uuid.v4(),
+            type: MessageType.draftReady,
+            draft: DraftPayload(
+              to: p['to'] as String? ?? '',
+              subject: p['subject'] as String? ?? '',
+              body: p['body'] as String? ?? '',
+              cc: (p['cc'] as List<dynamic>? ?? []).cast<String>(),
+            ),
+            actionId: e.actionId,
+            timestamp: DateTime.now(),
+          ),
+        );
+      }
     });
 
     _subResult = ws.onActionResult.listen((e) {
@@ -194,6 +245,7 @@ class ChatController extends GetxController {
     );
     isAgentBusy.value = true;
     _streamingId = null;
+    _codeStreamingId = null;
     _ws?.sendTranscript(text);
   }
 
@@ -203,6 +255,10 @@ class ChatController extends GetxController {
       'subject': draft.subject,
       'body': draft.body,
     });
+  }
+
+  void confirmGithubPrDraft(String actionId, GithubPrDraftPayload draft) {
+    _ws?.sendActionEdited(actionId, draft.toJson());
   }
 
   /// Links Google or Slack via Auth0 Connected Accounts (Token Vault), then notifies the backend.
@@ -222,6 +278,10 @@ class ChatController extends GetxController {
     final bool ok;
     if (provider == 'slack') {
       ok = await accounts.connectSlackConnection(
+        showSuccessSnack: !suppressSuccessSnack,
+      );
+    } else if (provider == 'github') {
+      ok = await accounts.connectGitHubConnection(
         showSuccessSnack: !suppressSuccessSnack,
       );
     } else {

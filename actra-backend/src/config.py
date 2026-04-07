@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     auth0_slack_connection_name: str = "sign-in-with-slack"
     """Auth0 Slack social connection name (Dashboard → Authentication → Social → Slack)."""
 
+    auth0_github_connection_name: str = "github"
+    """Auth0 GitHub social connection name (Dashboard → Authentication → Social → GitHub)."""
+
     gemini_api_key: str = ""
     gemini_model: str = "gemini-2.0-flash"
 

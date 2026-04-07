@@ -3,6 +3,7 @@ import 'package:actra/chat/models/chat_message.dart';
 import 'package:actra/chat/models/message_type.dart';
 import 'package:actra/chat/widgets/agent_bubble.dart';
 import 'package:actra/chat/widgets/draft_card.dart';
+import 'package:actra/chat/widgets/github_pr_draft_card.dart';
 import 'package:actra/chat/widgets/thinking_bubble.dart';
 import 'package:actra/chat/widgets/user_bubble.dart';
 import 'package:actra/core/chat_provider_labels.dart';
@@ -72,16 +73,17 @@ class _ChatEmptyState extends StatelessWidget {
   final void Function(String text) onPromptTap;
 
   static const _quickPrompts = <String>[
+    'Get me the latest message from slack',
     'Summarize my unread emails from today',
     'What meetings do I have tomorrow?',
-    'Draft a short Slack update for my team',
+    'List open issues in the ineffablesam/codi',
   ];
 
   static const _gridItems = <({IconData icon, String label, String hint})>[
     (icon: Iconsax.sms, label: 'Mail', hint: 'Draft & triage'),
     (icon: Iconsax.calendar_1, label: 'Calendar', hint: 'Schedule & prep'),
     (icon: Iconsax.messages_3, label: 'Slack', hint: 'Channels & DMs'),
-    (icon: Iconsax.flash_1, label: 'Actions', hint: 'Automate tasks'),
+    (icon: Iconsax.code, label: 'GitHub', hint: 'Issues & PRs'),
   ];
 
   @override
@@ -337,7 +339,11 @@ Widget _messageWidgetFor(ChatMessage m) {
       return const ThinkingBubble();
     case MessageType.agentStream:
     case MessageType.agentFinal:
-      return AgentBubble(text: m.text ?? '', isStreaming: m.isStreaming);
+      return AgentBubble(
+        text: m.text ?? '',
+        isStreaming: m.isStreaming,
+        isCode: m.isCodeStream,
+      );
     case MessageType.connectionsRequired:
       return _ConnectionPromptLine(
         providers: m.providers ?? const [],
@@ -346,6 +352,9 @@ Widget _messageWidgetFor(ChatMessage m) {
     case MessageType.systemConnectionStatus:
       return _SystemConnectionLine(text: m.text ?? '');
     case MessageType.draftReady:
+      if (m.githubPrDraft != null) {
+        return GithubPrDraftCard(message: m);
+      }
       return DraftCard(message: m);
     case MessageType.actionResult:
       return _ActionResultLine(

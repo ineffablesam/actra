@@ -73,6 +73,8 @@ class AgentStreamEvent(BaseModel):
     session_id: str
     chunk: str
     done: bool = False
+    # When "code", clients may render monospace (e.g. GitHub fix preview).
+    segment: str = "text"
 
 
 class DraftReadyEvent(BaseModel):

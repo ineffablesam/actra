@@ -194,6 +194,7 @@ String _providerRowSubtitle(String provider) {
   if (provider == 'slack') return 'Messages & channels in your workspace';
   if (provider.contains('gmail')) return 'Send mail and read threads';
   if (provider.contains('calendar')) return 'Calendar and events';
+  if (provider == 'github') return 'Repositories, issues, and pull requests';
   return 'OAuth connection';
 }
 
@@ -217,6 +218,13 @@ _ProviderVisual _providerVisual(String provider) {
       label: 'Calendar',
       brandAsset: Brands.google_calendar,
       color: Color(0xFF4285F4),
+    );
+  }
+  if (provider == 'github') {
+    return const _ProviderVisual(
+      label: 'GitHub',
+      brandAsset: Brands.github,
+      color: Color(0xFF24292F),
     );
   }
   return _ProviderVisual(

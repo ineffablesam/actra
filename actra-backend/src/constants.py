@@ -2,5 +2,5 @@
 
 # Token Vault–backed integrations (Auth0 federated connection per provider).
 SUPPORTED_PROVIDERS: frozenset[str] = frozenset(
-    {"google_gmail", "google_calendar", "slack"},
+    {"google_gmail", "google_calendar", "slack", "github"},
 )

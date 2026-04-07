@@ -34,6 +34,7 @@ from src.services.auth0_jwt_service import Auth0JwtService
 from src.services.calendar_service import CalendarService
 from src.services.cartesia_service import CartesiaService
 from src.services.gemini_service import GeminiService
+from src.services.github_service import GitHubService
 from src.services.gmail_service import GmailService
 from src.services.slack_service import SlackService
 from src.services.token_vault_service import TokenVaultService
@@ -75,6 +76,7 @@ class App:
         self.gmail = GmailService()
         self.calendar = CalendarService()
         self.slack = SlackService()
+        self.github = GitHubService()
         self.transcript_handler = TranscriptHandler(
             connections=self.connections,
             sessions=self.sessions,
@@ -84,6 +86,7 @@ class App:
             gmail=self.gmail,
             calendar=self.calendar,
             slack=self.slack,
+            github=self.github,
             settings=self.settings,
             memory=self.memory,
         )
@@ -96,6 +99,7 @@ class App:
             sessions=self.sessions,
             token_vault=self.token_vault,
             gmail=self.gmail,
+            github=self.github,
         )
 
     async def _send_ws_error(self, session_id: str, code: str, message: str) -> None:

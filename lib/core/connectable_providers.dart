@@ -3,4 +3,5 @@ const kDefaultConnectableProviderIds = <String>[
   'slack',
   'google_gmail',
   'google_calendar',
+  'github',
 ];

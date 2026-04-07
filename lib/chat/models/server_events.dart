@@ -25,6 +25,7 @@ sealed class ServerWsEvent {
           sessionId: sid,
           chunk: j['chunk'] as String? ?? '',
           done: j['done'] as bool? ?? false,
+          segment: j['segment'] as String? ?? 'text',
         );
       case 'draft_ready':
         return DraftReadyEvent(
@@ -82,9 +83,12 @@ class AgentStreamEvent extends ServerWsEvent {
     required super.sessionId,
     required this.chunk,
     required this.done,
+    this.segment = 'text',
   });
   final String chunk;
   final bool done;
+  /// Backend sends `code` for streamed code previews (e.g. GitHub fix).
+  final String segment;
 }
 
 class DraftReadyEvent extends ServerWsEvent {

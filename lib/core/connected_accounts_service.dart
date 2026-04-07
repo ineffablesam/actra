@@ -45,6 +45,24 @@ class ConnectedAccountsService extends GetxService {
   ///
   /// Scopes must match what your Slack app and Auth0 Slack connection allow
   /// ([Auth0 Slack](https://auth0.com/ai/docs/integrations/slack)).
+  /// Link GitHub for Token Vault ([Auth0 GitHub integration](https://auth0.com/ai/docs/integrations/github)).
+  /// Auth0 requires a non-empty `scopes` array; see [ConnectedAccountsPermissions.scopesForProvider]('github').
+  Future<bool> connectGitHubConnection({bool showSuccessSnack = true}) async {
+    debugPrint(
+      '[ConnectedAccounts] connectGitHubConnection connection=${Env.auth0GithubConnectionName}',
+    );
+    return _runConnectFlow(
+      connection: Env.auth0GithubConnectionName,
+      scopes: ConnectedAccountsPermissions.scopesForProvider('github'),
+      snackTitle: 'Sign in with GitHub',
+      snackBody: 'Safari will open — return here after you finish.',
+      successMessage: 'GitHub account linked to Token Vault.',
+      invalidConnectHint:
+          'Invalid connect response. Check Auth0 Connected Accounts on the GitHub connection.',
+      showSuccessSnack: showSuccessSnack,
+    );
+  }
+
   Future<bool> connectSlackConnection({bool showSuccessSnack = true}) async {
     debugPrint(
       '[ConnectedAccounts] connectSlackConnection connection=${Env.auth0SlackConnectionName}',
@@ -131,12 +149,12 @@ class ConnectedAccountsService extends GetxService {
       debugPrint(
         '[ConnectedAccounts] opening browser auth url=${startUri.toString()}',
       );
-      Get.snackbar(
-        snackTitle,
-        snackBody,
-        snackPosition: SnackPosition.BOTTOM,
-        duration: const Duration(seconds: 4),
-      );
+      // Get.snackbar(
+      //   snackTitle,
+      //   snackBody,
+      //   snackPosition: SnackPosition.BOTTOM,
+      //   duration: const Duration(seconds: 4),
+      // );
 
       String? callback;
       try {
@@ -209,6 +227,7 @@ class ConnectedAccountsService extends GetxService {
 
   String _connectionNameForProvider(String provider) {
     if (provider == 'slack') return Env.auth0SlackConnectionName;
+    if (provider == 'github') return Env.auth0GithubConnectionName;
     if (provider == 'google_gmail' || provider == 'google_calendar') {
       return Env.auth0GoogleConnectionName;
     }

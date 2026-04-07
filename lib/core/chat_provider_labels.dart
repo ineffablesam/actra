@@ -3,6 +3,7 @@ String providerDisplayName(String providerId) {
   if (providerId == 'slack') return 'Slack';
   if (providerId.contains('gmail')) return 'Gmail';
   if (providerId.contains('calendar')) return 'Google Calendar';
+  if (providerId == 'github') return 'GitHub';
   return providerId;
 }
 

@@ -55,6 +55,8 @@ class TokenVaultService:
             return self._settings.auth0_google_connection_name
         if provider == "slack":
             return self._settings.auth0_slack_connection_name
+        if provider == "github":
+            return self._settings.auth0_github_connection_name
         raise ValueError(f"Unknown Token Vault provider: {provider}")
 
     async def clear_cached_access_tokens(self, user_id: str) -> None:

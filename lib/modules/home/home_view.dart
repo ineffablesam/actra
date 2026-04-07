@@ -29,6 +29,13 @@ import 'package:wolt_modal_sheet/wolt_modal_sheet.dart';
 import '../../utils/custom_tap.dart';
 import '../../widgets/realtime_typewriter_transcript.dart';
 
+/// Space below the last chat bubble so content does not sit under [_BottomControlsBar].
+double _homeChatBottomPadding(BuildContext context) {
+  final safe = MediaQuery.paddingOf(context).bottom;
+  // Matches bar: `Padding.only(bottom: 20.h)` + tallest child ([MagicButton] height `90.w`).
+  return safe + 20.h + 90.w + 12.h;
+}
+
 class HomeView extends GetView<HomeController> {
   const HomeView({super.key});
 
@@ -65,7 +72,12 @@ class HomeView extends GetView<HomeController> {
                           },
                         ),
                         SliverPadding(
-                          padding: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 16.h),
+                          padding: EdgeInsets.fromLTRB(
+                            12.w,
+                            8.h,
+                            12.w,
+                            _homeChatBottomPadding(context),
+                          ),
                           sliver: const ChatMessagesSliver(),
                         ),
                       ],
